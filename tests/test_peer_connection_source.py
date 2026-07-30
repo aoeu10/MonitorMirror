@@ -52,6 +52,16 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration", H264_ENCODER)
         self.assertIn("kVTCompressionPropertyKey_MaxFrameDelayCount", H264_ENCODER)
         self.assertIn("to: NSNumber(value: 1)", H264_ENCODER)
+
+    def test_h264_encoder_failures_report_privacy_safe_fixed_stages(self):
+        self.assertIn("enum H264EncoderSetting", H264_ENCODER)
+        self.assertIn("case maxFrameDelay", H264_ENCODER)
+        self.assertIn("case encoderConfigurationFailed(H264EncoderSetting, OSStatus)", H264_ENCODER)
+        self.assertIn("var diagnosticEvent: String", H264_ENCODER)
+        self.assertIn('"h264.encoder.config.max-frame-delay.failed"', H264_ENCODER)
+        self.assertIn("LaunchDiagnostics.mark(codecError.diagnosticEvent)", CAMERA)
+        self.assertIn("reportH264Error(error)", CAMERA)
+        self.assertNotIn("LaunchDiagnostics.mark(\"\\(error", CAMERA)
         self.assertIn("VTCompressionSessionGetPixelBufferPool", H264_ENCODER)
         self.assertIn("kVTEncodeFrameOptionKey_ForceKeyFrame", H264_ENCODER)
         self.assertIn("VTCompressionSessionEncodeFrame", H264_ENCODER)

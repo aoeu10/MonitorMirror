@@ -4,12 +4,12 @@ This document tracks work that still requires physical-device validation.
 
 ## 1.1.0 H.264 transport
 
-**Status:** RC2 implements the first Xcode compile correction; full Xcode and physical testing pending
+**Status:** RC3 Diagnostic isolates the first physical-device encoder failure stage; full Xcode and physical testing pending
 **Priority:** High
 
 The H.264 branch replaces independent JPEG images with Apple VideoToolbox while retaining perspective correction, QR pairing, explicit Network.framework peer-to-peer routing, TLS-PSK authentication, bounded backpressure, and graceful **Stop Sharing**.
 
-### Implemented in RC1/RC2
+### Implemented in RC1–RC3
 
 - `VTCompressionSession` on the iPhone
 - `VTDecompressionSession` on the iPad

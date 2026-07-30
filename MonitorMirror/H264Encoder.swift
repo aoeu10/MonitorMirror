@@ -129,35 +129,51 @@ final class H264Encoder {
         }
         compressionSession = createdSession
 
-        try set(kVTCompressionPropertyKey_RealTime, to: kCFBooleanTrue, on: createdSession)
         try set(
-            kVTCompressionPropertyKey_ProfileLevel,
+            .realTime,
+            key: kVTCompressionPropertyKey_RealTime,
+            to: kCFBooleanTrue,
+            on: createdSession
+        )
+        try set(
+            .profileLevel,
+            key: kVTCompressionPropertyKey_ProfileLevel,
             to: kVTProfileLevel_H264_Baseline_AutoLevel,
             on: createdSession
         )
-        try set(kVTCompressionPropertyKey_AllowFrameReordering, to: kCFBooleanFalse, on: createdSession)
         try set(
-            kVTCompressionPropertyKey_MaxFrameDelayCount,
+            .frameReordering,
+            key: kVTCompressionPropertyKey_AllowFrameReordering,
+            to: kCFBooleanFalse,
+            on: createdSession
+        )
+        try set(
+            .maxFrameDelay,
+            key: kVTCompressionPropertyKey_MaxFrameDelayCount,
             to: NSNumber(value: 1),
             on: createdSession
         )
         try set(
-            kVTCompressionPropertyKey_ExpectedFrameRate,
+            .expectedFrameRate,
+            key: kVTCompressionPropertyKey_ExpectedFrameRate,
             to: NSNumber(value: Self.framesPerSecond),
             on: createdSession
         )
         try set(
-            kVTCompressionPropertyKey_AverageBitRate,
+            .averageBitRate,
+            key: kVTCompressionPropertyKey_AverageBitRate,
             to: NSNumber(value: 1_500_000),
             on: createdSession
         )
         try set(
-            kVTCompressionPropertyKey_MaxKeyFrameInterval,
+            .keyFrameInterval,
+            key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
             to: NSNumber(value: Self.framesPerSecond * 2),
             on: createdSession
         )
         try set(
-            kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration,
+            .keyFrameDuration,
+            key: kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration,
             to: NSNumber(value: 2),
             on: createdSession
         )
@@ -169,9 +185,16 @@ final class H264Encoder {
         }
     }
 
-    private func set(_ key: CFString, to value: CFTypeRef, on session: VTCompressionSession) throws {
+    private func set(
+        _ setting: H264EncoderSetting,
+        key: CFString,
+        to value: CFTypeRef,
+        on session: VTCompressionSession
+    ) throws {
         let status = VTSessionSetProperty(session, key: key, value: value)
-        guard status == noErr else { throw H264CodecError.encoderConfigurationFailed(status) }
+        guard status == noErr else {
+            throw H264CodecError.encoderConfigurationFailed(setting, status)
+        }
     }
 
     private static let compressionOutputCallback: VTCompressionOutputCallback = {
@@ -275,10 +298,47 @@ final class H264Encoder {
     }
 }
 
+enum H264EncoderSetting {
+    case realTime
+    case profileLevel
+    case frameReordering
+    case maxFrameDelay
+    case expectedFrameRate
+    case averageBitRate
+    case keyFrameInterval
+    case keyFrameDuration
+
+    var displayName: String {
+        switch self {
+        case .realTime: return "real-time"
+        case .profileLevel: return "H.264 profile"
+        case .frameReordering: return "frame-reordering"
+        case .maxFrameDelay: return "maximum-frame-delay"
+        case .expectedFrameRate: return "frame-rate"
+        case .averageBitRate: return "bit-rate"
+        case .keyFrameInterval: return "keyframe-interval"
+        case .keyFrameDuration: return "keyframe-duration"
+        }
+    }
+
+    var diagnosticEvent: String {
+        switch self {
+        case .realTime: return "h264.encoder.config.real-time.failed"
+        case .profileLevel: return "h264.encoder.config.profile.failed"
+        case .frameReordering: return "h264.encoder.config.frame-reordering.failed"
+        case .maxFrameDelay: return "h264.encoder.config.max-frame-delay.failed"
+        case .expectedFrameRate: return "h264.encoder.config.frame-rate.failed"
+        case .averageBitRate: return "h264.encoder.config.bit-rate.failed"
+        case .keyFrameInterval: return "h264.encoder.config.keyframe-interval.failed"
+        case .keyFrameDuration: return "h264.encoder.config.keyframe-duration.failed"
+        }
+    }
+}
+
 enum H264CodecError: LocalizedError {
     case encoderUnavailable
     case encoderCreationFailed(OSStatus)
-    case encoderConfigurationFailed(OSStatus)
+    case encoderConfigurationFailed(H264EncoderSetting, OSStatus)
     case encoderPreparationFailed(OSStatus)
     case pixelBufferCreationFailed(CVReturn)
     case encodeFailed(OSStatus)
@@ -288,7 +348,46 @@ enum H264CodecError: LocalizedError {
     case missingFormatDescription
     case invalidParameterSets
 
+    var diagnosticEvent: String {
+        switch self {
+        case .encoderUnavailable: return "h264.encoder.unavailable"
+        case .encoderCreationFailed: return "h264.encoder.creation.failed"
+        case .encoderConfigurationFailed(let setting, _): return setting.diagnosticEvent
+        case .encoderPreparationFailed: return "h264.encoder.preparation.failed"
+        case .pixelBufferCreationFailed: return "h264.encoder.pixel-buffer.failed"
+        case .encodeFailed: return "h264.encoder.frame.failed"
+        case .missingEncodedData: return "h264.encoder.output.missing-data"
+        case .invalidEncodedData: return "h264.encoder.output.invalid-data"
+        case .encodedDataCopyFailed: return "h264.encoder.output.copy.failed"
+        case .missingFormatDescription: return "h264.encoder.output.missing-format"
+        case .invalidParameterSets: return "h264.encoder.output.parameter-sets.failed"
+        }
+    }
+
     var errorDescription: String? {
-        "H.264 video processing failed."
+        switch self {
+        case .encoderUnavailable:
+            return "H.264 encoder became unavailable."
+        case .encoderCreationFailed:
+            return "H.264 encoder session creation failed."
+        case .encoderConfigurationFailed(let setting, _):
+            return "H.264 encoder rejected the \(setting.displayName) setting."
+        case .encoderPreparationFailed:
+            return "H.264 encoder preparation failed."
+        case .pixelBufferCreationFailed:
+            return "H.264 encoder input-frame allocation failed."
+        case .encodeFailed:
+            return "H.264 encoder rejected a video frame."
+        case .missingEncodedData:
+            return "H.264 encoder produced no frame data."
+        case .invalidEncodedData:
+            return "H.264 encoder produced invalid frame data."
+        case .encodedDataCopyFailed:
+            return "H.264 encoded-frame copy failed."
+        case .missingFormatDescription:
+            return "H.264 encoder produced no format description."
+        case .invalidParameterSets:
+            return "H.264 encoder produced invalid SPS/PPS configuration."
+        }
     }
 }

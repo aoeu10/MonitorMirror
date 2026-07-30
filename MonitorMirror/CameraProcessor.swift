@@ -302,11 +302,11 @@ final class CameraProcessor: NSObject, ObservableObject {
                     let handler = self.frameHandler
                     handler?(accessUnit)
                 case .failure(let error):
-                    self.publishError(error.localizedDescription)
+                    self.reportH264Error(error)
                 }
             }
         } catch {
-            publishError(error.localizedDescription)
+            reportH264Error(error)
         }
     }
 
@@ -317,6 +317,16 @@ final class CameraProcessor: NSObject, ObservableObject {
 
     private func publishError(_ message: String) {
         DispatchQueue.main.async { [weak self] in self?.errorMessage = message }
+    }
+
+    private func reportH264Error(_ error: Error) {
+        guard let codecError = error as? H264CodecError else {
+            LaunchDiagnostics.mark("h264.encoder.unknown.failed")
+            publishError("H.264 video processing failed at an unknown stage.")
+            return
+        }
+        LaunchDiagnostics.mark(codecError.diagnosticEvent)
+        publishError(codecError.localizedDescription)
     }
 }
 
@@ -351,7 +361,7 @@ extension CameraProcessor: AVCaptureVideoDataOutputSampleBufferDelegate {
         do {
             try self.h264Encoder?.encode(corrected)
         } catch {
-            publishError(error.localizedDescription)
+            reportH264Error(error)
         }
     }
 }

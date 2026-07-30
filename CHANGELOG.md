@@ -1,5 +1,12 @@
 # Release notes
 
+## 1.1.0 (Build 14) RC3 Diagnostic — H.264 encoder stage isolation
+
+- Replaces the generic iPhone encoder failure message with fixed, stage-specific descriptions
+- Distinguishes session creation, each VideoToolbox property, preparation, input-frame allocation, frame submission, output copying, format description, and SPS/PPS extraction
+- Emits only fixed `MM_DIAG` lifecycle labels plus elapsed time; no status values, pairing material, media, or codec payloads are logged
+- Does not change H.264 encoding, framing, transport, or pairing behavior
+
 ## 1.1.0 (Build 13) RC2 — Xcode decoder type fix
 
 - Removes a redundant conditional downcast from `CMFormatDescription` to its `CMVideoFormatDescription` typealias that Xcode rejects
