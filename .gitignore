@@ -12,6 +12,7 @@ xcuserdata/
 
 # Local notes
 *.swp
+/website/
 
 # Python test cache
 __pycache__/
