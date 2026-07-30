@@ -93,6 +93,25 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("activePeer?.sendEncodedFrame(accessUnit)", SENDER)
         self.assertNotIn("sendCorrectedFrame", SENDER)
 
+    def test_manual_corner_adjustment_pauses_auto_detection_until_auto_detect_is_tapped(self):
+        self.assertIn("private var autoDetectionEnabled = true", CAMERA)
+
+        update_corner = CAMERA.split("func updateCorner", 1)[1].split("private var isRunRequested", 1)[0]
+        self.assertIn("self.autoDetectionEnabled = false", update_corner)
+
+        redetect = CAMERA.split("func redetect", 1)[1].split("func setCalibrationLocked", 1)[0]
+        self.assertIn("self.autoDetectionEnabled = true", redetect)
+        self.assertIn("self.activeCorners = nil", redetect)
+
+        self.assertIn("if autoDetectionEnabled && !locked && frameNumber % 12 == 0", CAMERA)
+        self.assertIn('Label("Auto-Detect", systemImage: "viewfinder")', SENDER)
+        self.assertNotIn('Button("Re-detect", systemImage: "viewfinder")', SENDER)
+        auto_detect_label = SENDER.split('Label("Auto-Detect", systemImage: "viewfinder")', 1)[1].split(
+            ".buttonStyle(.bordered)", 1
+        )[0]
+        self.assertIn(".lineLimit(1)", auto_detect_label)
+        self.assertIn(".frame(maxWidth: .infinity)", auto_detect_label)
+
     def test_h264_decoder_requires_configuration_and_tears_down_async_work(self):
         self.assertIn("import VideoToolbox", H264_DECODER)
         self.assertIn("CMVideoFormatDescriptionCreateFromH264ParameterSets", H264_DECODER)
@@ -414,8 +433,9 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("@Environment(\\.dismiss)", VIEWER)
         self.assertIn(".onChange(of: peer.sessionEndSequence)", SENDER)
         self.assertIn(".onChange(of: peer.sessionEndSequence)", VIEWER)
-        stop_button = SENDER.split('Button(camera.isSharing ? "Stop Sharing"', 1)[1].split(".buttonStyle", 1)[0]
-        self.assertIn("endSharingSession()", stop_button)
+        share_label = SENDER.index('Label(camera.isSharing ? "Stop Sharing" : "Share"')
+        share_button = SENDER[SENDER.rfind("Button {", 0, share_label):share_label]
+        self.assertIn("endSharingSession()", share_button)
         end_helper = SENDER.split("private func endSharingSession()", 1)[1].split("private func", 1)[0]
         self.assertIn("peer.endSession()", end_helper)
         self.assertIn("camera.stop()", end_helper)

@@ -152,30 +152,46 @@ struct SenderView: View {
                     .multilineTextAlignment(.center)
             }
 
-            HStack(spacing: 10) {
-                Button("Re-detect", systemImage: "viewfinder") {
-                    camera.setSharing(false)
-                    camera.redetect()
-                }
-                .buttonStyle(.bordered)
-
-                Button(camera.isLocked ? "Unlock" : "Lock Corners", systemImage: camera.isLocked ? "lock.open" : "lock") {
-                    if camera.isLocked {
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    Button {
                         camera.setSharing(false)
-                        camera.setCalibrationLocked(false)
-                    } else {
-                        camera.setCalibrationLocked(true)
+                        camera.redetect()
+                    } label: {
+                        Label("Auto-Detect", systemImage: "viewfinder")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .frame(maxWidth: .infinity)
                     }
-                }
-                .buttonStyle(.bordered)
-                .disabled(camera.corners == nil)
+                    .buttonStyle(.bordered)
 
-                Button(camera.isSharing ? "Stop Sharing" : "Share", systemImage: camera.isSharing ? "stop.fill" : "video.fill") {
+                    Button {
+                        if camera.isLocked {
+                            camera.setSharing(false)
+                            camera.setCalibrationLocked(false)
+                        } else {
+                            camera.setCalibrationLocked(true)
+                        }
+                    } label: {
+                        Label(camera.isLocked ? "Unlock" : "Lock Corners", systemImage: camera.isLocked ? "lock.open" : "lock")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(camera.corners == nil)
+                }
+
+                Button {
                     if camera.isSharing {
                         endSharingSession()
                     } else {
                         camera.setSharing(true)
                     }
+                } label: {
+                    Label(camera.isSharing ? "Stop Sharing" : "Share", systemImage: camera.isSharing ? "stop.fill" : "video.fill")
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(camera.isSharing ? .red : .blue)

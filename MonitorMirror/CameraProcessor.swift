@@ -67,6 +67,7 @@ final class CameraProcessor: NSObject, ObservableObject {
     private lazy var ciContext = CIContext(options: [.cacheIntermediates: false])
 
     private var activeCorners: CornerSet?
+    private var autoDetectionEnabled = true
     private var locked = false
     private var sharing = false
     private var frameNumber = 0
@@ -116,6 +117,7 @@ final class CameraProcessor: NSObject, ObservableObject {
             self.sharing = false
             self.stopEncoder()
             self.locked = false
+            self.autoDetectionEnabled = true
             self.activeCorners = nil
             DispatchQueue.main.async {
                 self.isSharing = false
@@ -159,6 +161,7 @@ final class CameraProcessor: NSObject, ObservableObject {
         )
         captureQueue.async { [weak self] in
             guard let self, var updated = self.activeCorners else { return }
+            self.autoDetectionEnabled = false
             updated[corner] = clamped
             self.activeCorners = updated
             DispatchQueue.main.async { self.corners = updated }
@@ -342,7 +345,7 @@ extension CameraProcessor: AVCaptureVideoDataOutputSampleBufferDelegate {
         let image = CIImage(cvPixelBuffer: pixelBuffer).oriented(.right)
         frameNumber += 1
 
-        if !locked && frameNumber % 12 == 0 {
+        if autoDetectionEnabled && !locked && frameNumber % 12 == 0 {
             detectMonitor(in: image)
         }
 
