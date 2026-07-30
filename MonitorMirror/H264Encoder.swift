@@ -20,6 +20,7 @@ final class H264Encoder {
         height: CGFloat(H264Encoder.height)
     )
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
+    private let keyFrameLock = NSLock()
     private var compressionSession: VTCompressionSession?
     private var frameIndex: Int64 = 0
     private var needsKeyFrame = true
@@ -74,7 +75,7 @@ final class H264Encoder {
 
         let presentationTime = CMTime(value: frameIndex, timescale: Self.framesPerSecond)
         frameIndex &+= 1
-        let frameProperties: CFDictionary? = needsKeyFrame
+        let frameProperties: CFDictionary? = shouldForceKeyFrame()
             ? [kVTEncodeFrameOptionKey_ForceKeyFrame: true] as CFDictionary
             : nil
         let status = VTCompressionSessionEncodeFrame(
@@ -86,12 +87,32 @@ final class H264Encoder {
             sourceFrameRefcon: nil,
             infoFlagsOut: nil
         )
-        guard status == noErr else { throw H264CodecError.encodeFailed(status) }
-        needsKeyFrame = false
+        guard status == noErr else {
+            markKeyFrameNeeded()
+            throw H264CodecError.encodeFailed(status)
+        }
     }
 
     func requestKeyFrame() {
+        markKeyFrameNeeded()
+    }
+
+    private func shouldForceKeyFrame() -> Bool {
+        keyFrameLock.lock()
+        defer { keyFrameLock.unlock() }
+        return needsKeyFrame
+    }
+
+    private func markKeyFrameNeeded() {
+        keyFrameLock.lock()
         needsKeyFrame = true
+        keyFrameLock.unlock()
+    }
+
+    private func markKeyFrameDelivered() {
+        keyFrameLock.lock()
+        needsKeyFrame = false
+        keyFrameLock.unlock()
     }
 
     func invalidate() {
@@ -201,23 +222,41 @@ final class H264Encoder {
         outputCallbackRefCon,
         _,
         status,
-        _,
+        infoFlags,
         sampleBuffer
         in
         guard let outputCallbackRefCon else { return }
         let encoder = Unmanaged<H264Encoder>
             .fromOpaque(outputCallbackRefCon)
             .takeUnretainedValue()
-        guard status == noErr,
-              let sampleBuffer,
-              CMSampleBufferDataIsReady(sampleBuffer) else {
+        guard status == noErr else {
+            encoder.markKeyFrameNeeded()
             encoder.outputHandler(.failure(H264CodecError.encodeFailed(status)))
+            return
+        }
+        if infoFlags.contains(.frameDropped) {
+            encoder.markKeyFrameNeeded()
+            return
+        }
+        guard let sampleBuffer else {
+            encoder.markKeyFrameNeeded()
+            encoder.outputHandler(.failure(H264CodecError.missingEncodedData))
+            return
+        }
+        guard CMSampleBufferDataIsReady(sampleBuffer) else {
+            encoder.markKeyFrameNeeded()
+            encoder.outputHandler(.failure(H264CodecError.invalidEncodedData))
             return
         }
 
         do {
-            encoder.outputHandler(.success(try makeAccessUnit(from: sampleBuffer)))
+            let accessUnit = try makeAccessUnit(from: sampleBuffer)
+            if accessUnit.isKeyFrame {
+                encoder.markKeyFrameDelivered()
+            }
+            encoder.outputHandler(.success(accessUnit))
         } catch {
+            encoder.markKeyFrameNeeded()
             encoder.outputHandler(.failure(error))
         }
     }

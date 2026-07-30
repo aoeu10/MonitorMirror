@@ -1,5 +1,13 @@
 # Release notes
 
+## 1.1.0 (Build 15) RC4 — Nonfatal encoder drops and keyframe recovery
+
+- Treats VideoToolbox `.frameDropped` callbacks as nonfatal rather than surfacing a generic H.264 processing error
+- Keeps forcing recovery keyframes until a keyframe is actually emitted, preventing a dropped first keyframe from leaving the viewer without SPS/PPS
+- Synchronizes keyframe state between the capture queue and asynchronous compression callback
+- Requests keyframe recovery after synchronous submission, callback, or access-unit construction failures
+- Retains RC3's fixed, privacy-safe encoder-stage diagnostics
+
 ## 1.1.0 (Build 14) RC3 Diagnostic — H.264 encoder stage isolation
 
 - Replaces the generic iPhone encoder failure message with fixed, stage-specific descriptions

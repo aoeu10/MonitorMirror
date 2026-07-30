@@ -126,7 +126,7 @@ This design provides strong technical safeguards, but software architecture alon
 
 ## Current transport
 
-Version 1.1.0 RC3 Diagnostic uses Apple VideoToolbox H.264 at 960×540, approximately 15 FPS, and a 1.5 Mbps target bitrate. Frame reordering is disabled. Keyframes carry SPS/PPS decoder configuration and occur at least every two seconds. The reliable TLS stream permits one active send and one pending access unit. If that slot is full, the sender retains the dependency-valid pending unit, requests a new keyframe, and rejects later delta frames until the keyframe arrives.
+Version 1.1.0 RC4 uses Apple VideoToolbox H.264 at 960×540, approximately 15 FPS, and a 1.5 Mbps target bitrate. Frame reordering is disabled. Keyframes carry SPS/PPS decoder configuration and occur at least every two seconds. The reliable TLS stream permits one active send and one pending access unit. If that slot is full, the sender retains the dependency-valid pending unit, requests a new keyframe, and rejects later delta frames until the keyframe arrives.
 
 The complete JPEG implementation remains available at branch `jpeg-1.0.x`, tag `v1.0.1-rc10`, and `releases/candidates/MonitorMirror-1.0.1-build-11-rc10-Xcode.zip`. See [`ROADMAP.md`](ROADMAP.md) for the physical H.264 acceptance matrix.
 

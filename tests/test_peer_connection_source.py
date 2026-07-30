@@ -65,6 +65,17 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("VTCompressionSessionGetPixelBufferPool", H264_ENCODER)
         self.assertIn("kVTEncodeFrameOptionKey_ForceKeyFrame", H264_ENCODER)
         self.assertIn("VTCompressionSessionEncodeFrame", H264_ENCODER)
+
+    def test_h264_encoder_treats_dropped_frames_as_nonfatal_and_preserves_keyframe_recovery(self):
+        self.assertIn("infoFlags.contains(.frameDropped)", H264_ENCODER)
+        self.assertIn("encoder.markKeyFrameNeeded()", H264_ENCODER)
+        self.assertIn("if accessUnit.isKeyFrame", H264_ENCODER)
+        self.assertIn("encoder.markKeyFrameDelivered()", H264_ENCODER)
+        self.assertIn("private let keyFrameLock = NSLock()", H264_ENCODER)
+        self.assertNotIn(
+            "guard status == noErr else { throw H264CodecError.encodeFailed(status) }\n        needsKeyFrame = false",
+            H264_ENCODER,
+        )
         self.assertIn("CMVideoFormatDescriptionGetH264ParameterSetAtIndex", H264_ENCODER)
         self.assertIn("CMBlockBufferCopyDataBytes", H264_ENCODER)
         self.assertIn("VTCompressionSessionCompleteFrames", H264_ENCODER)
