@@ -1,0 +1,18 @@
+# Xcode
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# Signing and archives
+*.ipa
+*.xcarchive
+/releases/**/*.zip
+
+# Local notes
+*.swp
+
+# Python test cache
+__pycache__/
+*.py[cod]
