@@ -169,12 +169,6 @@ final class H264Encoder {
             on: createdSession
         )
         try set(
-            .maxFrameDelay,
-            key: kVTCompressionPropertyKey_MaxFrameDelayCount,
-            to: NSNumber(value: 1),
-            on: createdSession
-        )
-        try set(
             .expectedFrameRate,
             key: kVTCompressionPropertyKey_ExpectedFrameRate,
             to: NSNumber(value: Self.framesPerSecond),
@@ -341,7 +335,6 @@ enum H264EncoderSetting {
     case realTime
     case profileLevel
     case frameReordering
-    case maxFrameDelay
     case expectedFrameRate
     case averageBitRate
     case keyFrameInterval
@@ -352,7 +345,6 @@ enum H264EncoderSetting {
         case .realTime: return "real-time"
         case .profileLevel: return "H.264 profile"
         case .frameReordering: return "frame-reordering"
-        case .maxFrameDelay: return "maximum-frame-delay"
         case .expectedFrameRate: return "frame-rate"
         case .averageBitRate: return "bit-rate"
         case .keyFrameInterval: return "keyframe-interval"
@@ -365,7 +357,6 @@ enum H264EncoderSetting {
         case .realTime: return "h264.encoder.config.real-time.failed"
         case .profileLevel: return "h264.encoder.config.profile.failed"
         case .frameReordering: return "h264.encoder.config.frame-reordering.failed"
-        case .maxFrameDelay: return "h264.encoder.config.max-frame-delay.failed"
         case .expectedFrameRate: return "h264.encoder.config.frame-rate.failed"
         case .averageBitRate: return "h264.encoder.config.bit-rate.failed"
         case .keyFrameInterval: return "h264.encoder.config.keyframe-interval.failed"

@@ -4,12 +4,12 @@ This document tracks work that still requires physical-device validation.
 
 ## 1.1.0 H.264 transport
 
-**Status:** RC4 corrects nonfatal dropped-frame handling and first-keyframe recovery; full Xcode and physical retesting pending
+**Status:** RC5 removes the physical iPhone's rejected maximum-frame-delay property; Xcode and physical retesting pending
 **Priority:** High
 
 The H.264 branch replaces independent JPEG images with Apple VideoToolbox while retaining perspective correction, QR pairing, explicit Network.framework peer-to-peer routing, TLS-PSK authentication, bounded backpressure, and graceful **Stop Sharing**.
 
-### Implemented in RC1–RC4
+### Implemented in RC1–RC5
 
 - `VTCompressionSession` on the iPhone
 - `VTDecompressionSession` on the iPad

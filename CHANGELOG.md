@@ -1,5 +1,12 @@
 # Release notes
 
+## 1.1.0 (Build 16) RC5 — Device-supported low-latency encoder configuration
+
+- Removes `kVTCompressionPropertyKey_MaxFrameDelayCount = 1`, which the physical iPhone VideoToolbox encoder rejected
+- Retains real-time mode, disabled frame reordering, expected frame rate, bitrate, and keyframe limits
+- Retains the bounded transport invariant of one active complete access unit plus at most one dependency-valid pending unit
+- Retains RC4 dropped-frame handling, keyframe recovery, and privacy-safe stage diagnostics
+
 ## 1.1.0 (Build 15) RC4 — Nonfatal encoder drops and keyframe recovery
 
 - Treats VideoToolbox `.frameDropped` callbacks as nonfatal rather than surfacing a generic H.264 processing error

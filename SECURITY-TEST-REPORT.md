@@ -1,12 +1,12 @@
-# Monitor Mirror 1.1.0 RC4 — H.264, Transport, and Lifecycle Review
+# Monitor Mirror 1.1.0 RC5 — H.264, Transport, and Lifecycle Review
 
 **Scope:** Source-level and structural review on Linux
-**Version:** 1.1.0 (Build 15) RC4
+**Version:** 1.1.0 (Build 16) RC5
 **Runtime status:** Xcode compilation, VideoToolbox runtime, camera, and physical peer-to-peer testing remain pending.
 
 ## Executive summary
 
-RC4 carries the RC1 H.264 media implementation, RC2 Xcode compile correction, and RC3 fixed-stage diagnostics. It treats VideoToolbox frame-drop callbacks as nonfatal and keeps forcing recovery keyframes until a keyframe is actually emitted, while retaining the established QR-authenticated Network.framework TLS-PSK connection. Media packets remain length-prefixed and bounded. Sender backpressure permits one active send plus one dependency-valid pending access unit. If that slot is full, it requests a fresh keyframe and rejects later deltas until recovery rather than breaking the H.264 reference chain. The encrypted graceful end command remains packet type 2 and cannot overtake active media.
+RC5 carries the prior H.264 implementation and diagnostics while removing `kVTCompressionPropertyKey_MaxFrameDelayCount = 1`, which the physical iPhone encoder rejected. It retains real-time mode, disabled frame reordering, bounded transport backpressure, nonfatal dropped-frame handling, and keyframe recovery, along with the established QR-authenticated Network.framework TLS-PSK connection. Media packets remain length-prefixed and bounded. Sender backpressure permits one active send plus one dependency-valid pending access unit. If that slot is full, it requests a fresh keyframe and rejects later deltas until recovery rather than breaking the H.264 reference chain. The encrypted graceful end command remains packet type 2 and cannot overtake active media.
 
 Linux checks establish source intent and project structure only. They cannot prove VideoToolbox API linkage, hardware codec behavior, output callback timing, real-device readability, thermal behavior, or peer-to-peer performance.
 
@@ -79,8 +79,8 @@ The sender keeps no unbounded encoded queue. If no send is active, an access uni
 
 ## Physical test matrix
 
-1. Compile RC4 with Xcode and the installed iOS SDK.
-2. Install build 15 on both physical devices; confirm version-2 JPEG codes are rejected explicitly.
+1. Compile RC5 with Xcode and the installed iOS SDK.
+2. Install build 16 on both physical devices; confirm version-2 JPEG codes are rejected explicitly.
 3. Confirm first keyframe displays after Share and no stale frame survives from a previous session.
 4. Test shared infrastructure Wi-Fi and Wi-Fi enabled but unjoined on both devices.
 5. Run Stop Sharing while an H.264 access unit is active; confirm both views return to role selection.
