@@ -1,5 +1,12 @@
 # Release notes
 
+## 1.1.0 (Build 17) RC6 — In-app About information
+
+- Adds a small About button to the main role-selection page
+- Adds the app description, current version/build, concise changelog, and website link
+- Discloses that Monitor Mirror includes no third-party libraries or external open-source packages and lists the Apple system frameworks used
+- Leaves the physically verified RC5 H.264 media, transport, pairing, and teardown behavior unchanged
+
 ## 1.1.0 (Build 16) RC5 — Device-supported low-latency encoder configuration
 
 - Removes `kVTCompressionPropertyKey_MaxFrameDelayCount = 1`, which the physical iPhone VideoToolbox encoder rejected

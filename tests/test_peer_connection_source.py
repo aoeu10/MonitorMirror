@@ -167,6 +167,21 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertNotIn('systemImage: "iphone.gen3.camera"', CONTENT)
         self.assertIn('systemImage: "iphone"', CONTENT)
 
+    def test_main_page_offers_about_details_changelog_dependencies_and_website(self):
+        self.assertIn("@State private var isShowingAbout = false", CONTENT)
+        self.assertIn('Label("About", systemImage: "info.circle")', CONTENT)
+        self.assertIn(".sheet(isPresented: $isShowingAbout)", CONTENT)
+        self.assertIn("private struct AboutView: View", CONTENT)
+        self.assertIn("@Environment(\\.dismiss) private var dismiss", CONTENT)
+        self.assertNotIn("@Environment(\\\\.dismiss)", CONTENT)
+        self.assertIn('(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.0"', CONTENT)
+        self.assertIn('(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? ""', CONTENT)
+        self.assertIn("Privately share a perspective-corrected view", CONTENT)
+        self.assertIn('Text("Changelog")', CONTENT)
+        self.assertIn('Text("Libraries")', CONTENT)
+        self.assertIn("No third-party libraries or external open-source packages", CONTENT)
+        self.assertIn('URL(string: "https://monitor-mirror.com")!', CONTENT)
+
     def test_launch_diagnostics_cover_root_and_first_viewer_path_without_secrets(self):
         for marker in (
             'LaunchDiagnostics.mark("peer.init")',
