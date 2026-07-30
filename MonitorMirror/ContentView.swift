@@ -1,6 +1,10 @@
 import SwiftUI
 
 struct ContentView: View {
+    init() {
+        LaunchDiagnostics.mark("root.init")
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 28) {
@@ -36,7 +40,7 @@ struct ContentView: View {
                         RoleCard(
                             title: "Share Monitor",
                             subtitle: "Use this on the iPhone mounted beside the monitor.",
-                            systemImage: "iphone.gen3.camera"
+                            systemImage: "iphone"
                         )
                     }
                 }

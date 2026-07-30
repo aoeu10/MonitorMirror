@@ -137,6 +137,16 @@ That design still depends on the HTTPS host to load the application, unless it i
 
 ## Troubleshooting
 
+### First launch or View Monitor is delayed
+
+Build 8 RC7 contains temporary non-sensitive lifecycle timing. In Xcode's console, filter for `MM_DIAG`, perform one fresh launch, tap **View Monitor** once, and copy the complete sequence. The events contain fixed labels and elapsed seconds only; they do not contain pairing secrets, service identities, images, or monitor content.
+
+- A gap before `root.appeared` isolates app/root rendering.
+- A gap from `viewer.listener.begin` to `viewer.listener.created` isolates Network.framework listener construction.
+- A gap from `viewer.listener.created` to `viewer.listener.installed` indicates the main actor was unavailable.
+- A gap from `viewer.qr.begin` to `viewer.qr.ready` isolates QR rendering.
+- If all elapsed values remain near zero despite a long launch screen, the delay occurs before Monitor Mirror's Swift lifecycle begins.
+
 ### The devices do not find each other
 
 - Confirm Local Network permission on both devices. If the app reports that permission is unavailable, open **Settings → Apps → Monitor Mirror → Local Network**, enable it, and pair again.

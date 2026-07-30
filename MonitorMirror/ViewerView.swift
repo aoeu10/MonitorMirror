@@ -5,6 +5,10 @@ struct ViewerView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var peer: PeerSession
 
+    init() {
+        LaunchDiagnostics.mark("viewer.init")
+    }
+
     var body: some View {
         VStack(spacing: 18) {
             if peer.isConnected {
@@ -34,6 +38,7 @@ struct ViewerView: View {
         .navigationTitle("iPad Viewer")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            LaunchDiagnostics.mark("viewer.appeared")
             UIApplication.shared.isIdleTimerDisabled = true
             peer.startViewerSession()
         }

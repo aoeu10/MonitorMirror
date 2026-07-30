@@ -14,6 +14,31 @@ CAMERA = (ROOT / "MonitorMirror/CameraProcessor.swift").read_text()
 
 
 class NetworkPeerConnectionSourceTests(unittest.TestCase):
+    def test_root_uses_backward_compatible_iphone_symbol(self):
+        self.assertNotIn('systemImage: "iphone.gen3.camera"', CONTENT)
+        self.assertIn('systemImage: "iphone"', CONTENT)
+
+    def test_launch_diagnostics_cover_root_and_first_viewer_path_without_secrets(self):
+        for marker in (
+            'LaunchDiagnostics.mark("peer.init")',
+            'LaunchDiagnostics.mark("app.init")',
+            'LaunchDiagnostics.mark("root.init")',
+            'LaunchDiagnostics.mark("root.appeared")',
+            'LaunchDiagnostics.mark("viewer.init")',
+            'LaunchDiagnostics.mark("viewer.appeared")',
+            'LaunchDiagnostics.mark("viewer.session.begin")',
+            'LaunchDiagnostics.mark("viewer.listener.begin")',
+            'LaunchDiagnostics.mark("viewer.listener.created")',
+            'LaunchDiagnostics.mark("viewer.listener.installed")',
+            'LaunchDiagnostics.mark("viewer.qr.begin")',
+            'LaunchDiagnostics.mark("viewer.qr.ready")',
+        ):
+            self.assertIn(marker, APP + CONTENT + PEER + VIEWER + QR)
+        self.assertIn("MM_DIAG", APP)
+        diagnostics = APP.split("enum LaunchDiagnostics", 1)[1]
+        for forbidden in ("token", "serviceName", "pairingPayload", "receivedFrame"):
+            self.assertNotIn(forbidden, diagnostics)
+
     def test_cold_app_launch_does_not_construct_camera_pipeline(self):
         self.assertNotIn("CameraProcessor()", APP)
         self.assertNotIn(".environmentObject(camera)", APP)

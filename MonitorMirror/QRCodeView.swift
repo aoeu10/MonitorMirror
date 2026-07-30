@@ -24,6 +24,7 @@ struct QRCodeView: View {
             }
         }
         .task(id: value) {
+            LaunchDiagnostics.mark("viewer.qr.begin")
             image = nil
             generationFailed = false
 
@@ -35,6 +36,7 @@ struct QRCodeView: View {
             guard !Task.isCancelled else { return }
             if let pngData, let rendered = UIImage(data: pngData) {
                 image = rendered
+                LaunchDiagnostics.mark("viewer.qr.ready")
             } else {
                 generationFailed = true
             }

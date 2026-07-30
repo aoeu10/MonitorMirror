@@ -63,12 +63,17 @@ final class PeerSession: ObservableObject {
     private var endingSession = false
     private var endSessionPacketSent = false
 
+    init() {
+        LaunchDiagnostics.mark("peer.init")
+    }
+
     var isConnected: Bool {
         if case .connected = state { return true }
         return false
     }
 
     func startViewerSession() {
+        LaunchDiagnostics.mark("viewer.session.begin")
         stop()
         role = .viewer
 
@@ -77,7 +82,9 @@ final class PeerSession: ObservableObject {
         pairingPayload = payload
         activeToken = payload.token
         state = .advertising
+        LaunchDiagnostics.mark("viewer.session.payload.ready")
         prepareViewerListener(payload, serviceName: serviceName)
+        LaunchDiagnostics.mark("viewer.session.listener.queued")
     }
 
     func regenerateViewerCode() {
@@ -180,6 +187,7 @@ final class PeerSession: ObservableObject {
     private func prepareViewerListener(_ payload: PairingPayload, serviceName: String) {
         let token = payload.token
         networkQueue.async { [weak self] in
+            LaunchDiagnostics.mark("viewer.listener.begin")
             do {
                 let candidate = try NWListener(
                     using: Self.makeTransportParameters(
@@ -188,6 +196,7 @@ final class PeerSession: ObservableObject {
                     )
                 )
                 candidate.service = NWListener.Service(name: serviceName, type: Self.bonjourType)
+                LaunchDiagnostics.mark("viewer.listener.created")
                 Task { @MainActor [weak self] in
                     self?.installViewerListener(
                         candidate,
@@ -229,6 +238,7 @@ final class PeerSession: ObservableObject {
         }
         listener = candidate
         candidate.start(queue: networkQueue)
+        LaunchDiagnostics.mark("viewer.listener.installed")
     }
 
     private func accept(_ candidate: NWConnection) {

@@ -1,8 +1,8 @@
-# Monitor Mirror 1.0.1 RC6 — Network Transport and Lifecycle Review
+# Monitor Mirror 1.0.1 RC7 — Diagnostic Network Transport and Lifecycle Review
 
 **Scope:** Source-level review on Linux
 
-**Version:** 1.0.1 (Build 7) RC6
+**Version:** 1.0.1 (Build 8) RC7
 **Runtime status:** Xcode compilation, installed-device adversarial tests, and packet capture remain pending.
 
 ## Executive summary
@@ -39,7 +39,7 @@ These source checks establish implementation intent and structural safeguards. T
 | Discovery timeout | Thirty-second deadline starts when Bonjour browsing begins and resets for TLS authentication | PASS |
 | Local Network guidance | Network.framework `EPERM` is mapped to Settings guidance | PASS |
 | Teardown | Listener, browser, connection, token, pending frame, and displayed frame cleared | PASS |
-| Sensitive logging | No token, frame, or monitor-content logging added | PASS |
+| Sensitive logging | Temporary `MM_DIAG` output contains fixed lifecycle labels and elapsed seconds only; no token, service identity, frame, payload, or monitor content | PASS |
 
 ## TLS-PSK design
 
@@ -58,17 +58,19 @@ TLS is constrained to version 1.2 because Apple documents that Network.framework
 
 The user has physically confirmed same-infrastructure Wi-Fi connectivity, iPhone peer-to-peer connectivity while Wi-Fi is enabled but unjoined, and graceful **Stop Sharing** teardown on both devices in the preceding candidates.
 
-1. Compile RC6 with the user’s installed Xcode/iOS SDK.
-2. Install the same 1.0.1 build 7 RC6 on both devices.
-3. Cold-launch the iPad after disconnecting it from infrastructure Wi-Fi and confirm the role-selection screen appears promptly.
-4. On a fresh RC6 install, tap **View Monitor** and confirm its progress state and QR appear promptly.
-5. Reconfirm same-infrastructure and iPhone-unjoined peer-to-peer pairing, streaming, and **Stop Sharing** behavior.
-6. Test both devices with Wi-Fi enabled and neither joined.
-7. Attempt connection from a third device without the QR token.
-8. Attempt expired and version-1 QR codes.
-9. Capture traffic and confirm no JPEG signatures or readable monitor content appear outside TLS records.
-10. Test disconnect/retry and foreground/background transitions.
-11. Stream for at least ten minutes and monitor latency, heat, and memory.
+1. Compile RC7 with the user’s installed Xcode/iOS SDK.
+2. Install the same 1.0.1 build 8 RC7 on both devices.
+3. Delete the prior app first, launch RC7 from Xcode once, filter the console for `MM_DIAG`, and retain every matching line.
+4. Cold-launch each device from the Home Screen with Xcode detached and compare the visible delay with the attached launch.
+5. On the first RC7 run, tap **View Monitor** once and capture the complete `MM_DIAG` sequence through `viewer.qr.ready`.
+6. Confirm the nonexistent-symbol warning for `iphone.gen3.camera` no longer appears.
+7. Reconfirm same-infrastructure and iPhone-unjoined peer-to-peer pairing, streaming, and **Stop Sharing** behavior.
+8. Test both devices with Wi-Fi enabled and neither joined.
+9. Attempt connection from a third device without the QR token.
+10. Attempt expired and version-1 QR codes.
+11. Capture traffic and confirm no JPEG signatures or readable monitor content appear outside TLS records.
+12. Test disconnect/retry and foreground/background transitions.
+13. Stream for at least ten minutes and monitor latency, heat, and memory.
 
 ## Compliance boundary
 

@@ -1,5 +1,16 @@
 # Release notes
 
+## 1.0.1 (Build 8) RC7 — Launch timing diagnostics and SF Symbol correction
+
+- Replaces the nonexistent `iphone.gen3.camera` SF Symbol with the backward-compatible `iphone` symbol
+- Adds temporary `MM_DIAG` lifecycle timing for app/root construction and appearance
+- Times first viewer construction, pairing payload creation, listener queueing/construction/installation, and QR rendering
+- Uses fixed public event labels and elapsed time only; it never logs QR data, tokens, service identities, frames, or payloads
+- Separates listener construction on the network queue from installation on the main actor to expose either delay
+- Adds two focused symbol/diagnostic regressions; full source regression count is now 27
+
+This is a diagnostic release candidate. Capture all `MM_DIAG` lines from a fresh launch and first **View Monitor** tap before removing the temporary instrumentation.
+
 ## 1.0.1 (Build 7) RC6 — Responsive cold launch and QR setup
 
 - Removes global camera-pipeline construction from app launch; the iPhone sender now owns its camera processor
