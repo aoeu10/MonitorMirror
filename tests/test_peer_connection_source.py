@@ -13,9 +13,20 @@ APP = (ROOT / "MonitorMirror/MonitorMirrorApp.swift").read_text()
 CONTENT = (ROOT / "MonitorMirror/ContentView.swift").read_text()
 QR = (ROOT / "MonitorMirror/QRCodeView.swift").read_text()
 CAMERA = (ROOT / "MonitorMirror/CameraProcessor.swift").read_text()
+README = (ROOT / "README.md").read_text()
 
 
 class NetworkPeerConnectionSourceTests(unittest.TestCase):
+    def test_readme_stays_focused_on_the_native_product(self):
+        self.assertIn("## Features", README)
+        self.assertIn("## Current transport", README)
+        self.assertNotIn("MVP", README)
+        self.assertNotIn("Two-QR web alternative", README)
+        self.assertNotIn("static web application", README)
+        self.assertNotIn("PWA", README)
+        self.assertNotIn("MM_DIAG", README)
+        self.assertNotIn("Build 10 RC9", README)
+
     def test_perspective_monitor_logo_is_used_in_app_and_home_screen(self):
         assets = ROOT / "MonitorMirror/Assets.xcassets"
         app_icon = assets / "AppIcon.appiconset/AppIcon-1024.png"

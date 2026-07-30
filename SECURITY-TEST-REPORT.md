@@ -1,8 +1,8 @@
-# Monitor Mirror 1.0.1 RC9 — Branding, Network Transport, and Lifecycle Review
+# Monitor Mirror 1.0.1 RC10 — Branding, Network Transport, and Lifecycle Review
 
 **Scope:** Source-level review on Linux
 
-**Version:** 1.0.1 (Build 10) RC9
+**Version:** 1.0.1 (Build 11) RC10
 **Runtime status:** Xcode compilation, installed-device adversarial tests, and packet capture remain pending.
 
 ## Executive summary
@@ -59,12 +59,12 @@ TLS is constrained to version 1.2 because Apple documents that Network.framework
 
 The user has physically confirmed same-infrastructure Wi-Fi connectivity, iPhone peer-to-peer connectivity while Wi-Fi is enabled but unjoined, and graceful **Stop Sharing** teardown on both devices in the preceding candidates.
 
-1. Compile RC9 with the user’s installed Xcode/iOS SDK.
-2. Install the same 1.0.1 build 10 RC9 on both devices.
-3. Confirm the angled-monitor logo appears above the title and as the Home Screen icon on both iPhone and iPad.
-4. Delete the prior app first, launch RC9 from Xcode once, filter the console for `MM_DIAG`, and retain every matching line.
+1. Compile RC10 with the user’s installed Xcode/iOS SDK.
+2. Install the same 1.0.1 build 11 RC10 on both devices.
+3. Confirm the approved receding-monitor logo appears above the title and as the Home Screen icon on both iPhone and iPad.
+4. Delete the prior app first, launch RC10 from Xcode once, filter the console for `MM_DIAG`, and retain every matching line.
 5. Confirm a subsequent Home Screen launch remains immediate; fresh Xcode install/debug launch timing is tracked separately from normal app launch.
-6. On the first RC9 run, tap **View Monitor** once and confirm there is only one `viewer.qr.begin`, `viewer.listener.installed` follows promptly, and `viewer.qr.ready` appears without a gesture timeout.
+6. On the first RC10 run, tap **View Monitor** once and confirm there is only one `viewer.qr.begin`, `viewer.listener.installed` follows promptly, and `viewer.qr.ready` appears without a gesture timeout.
 7. Confirm the nonexistent-symbol warning for `iphone.gen3.camera` no longer appears.
 8. Reconfirm same-infrastructure and iPhone-unjoined peer-to-peer pairing, streaming, and **Stop Sharing** behavior.
 9. Test both devices with Wi-Fi enabled and neither joined.

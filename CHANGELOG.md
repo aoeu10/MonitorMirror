@@ -1,5 +1,13 @@
 # Release notes
 
+## 1.0.1 (Build 11) RC10 — Receding monitor perspective
+
+- Refines the approved logo so the monitor's top and lower edges share the same upper-right vanishing direction
+- Uses the approved receding-perspective artwork above the **Monitor Mirror** title and for the iPhone/iPad Home Screen icon
+- Regenerates the opaque 1024×1024 app icon and exact 1×, 2×, and 3× in-app derivatives from one master image
+- Tightens the README by removing the obsolete two-QR web alternative, temporary RC-specific timing instructions, and outdated MVP wording
+- Adds a README regression that keeps product documentation focused on the native app; full source regression count is now 30
+
 ## 1.0.1 (Build 10) RC9 — Perspective monitor identity
 
 - Adds an original perspective-skewed monitor logo with four correction handles, reflected light, and a monitor stand

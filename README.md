@@ -4,7 +4,7 @@ Monitor Mirror is a universal iPhone/iPad app that privately shares a perspectiv
 
 The project uses only Apple frameworks. It has no package-manager dependencies, accounts, cloud backend, analytics, recording, or persistent media storage.
 
-## MVP capabilities
+## Features
 
 - One universal app target for iPhone and iPad
 - One-scan QR pairing
@@ -123,29 +123,13 @@ iPhone Camera                     │
 
 This design provides strong technical safeguards, but software architecture alone does not establish organizational HIPAA compliance. Deployment still requires device access controls, risk analysis, incident procedures, workforce policies, and appropriate administrative safeguards.
 
-## Current MVP tradeoffs
+## Current transport
 
-The compile-ready MVP transmits corrected JPEG frames at roughly 10 FPS. This keeps the implementation small and inspectable while validating pairing, capture, correction, and transport. A low-latency Apple VideoToolbox H.264 transport is planned for version 1.1.0 to improve frame rate, bandwidth, battery use, and thermal behavior without changing the pairing or security architecture. See [`ROADMAP.md`](ROADMAP.md) for scope and acceptance criteria.
+The current release transmits corrected JPEG frames at roughly 10 FPS. This keeps the media path small and inspectable. A low-latency Apple VideoToolbox H.264 transport is planned for version 1.1.0 to improve frame rate, bandwidth, battery use, and thermal behavior without changing pairing or security. See [`ROADMAP.md`](ROADMAP.md) for scope and acceptance criteria.
 
 Network.framework uses infrastructure Wi-Fi when available and explicitly opts into Apple peer-to-peer Wi-Fi for nearby operation. Bluetooth may assist nearby discovery, but it does not carry the video. No internet service or external server is required. For peer-to-peer operation without a shared Wi-Fi network, Wi-Fi and Bluetooth must remain enabled on both devices.
 
-## Two-QR web alternative
-
-A static web application can be hosted on any trusted HTTPS host without hosting signaling or video. The iPad can encode a WebRTC offer into one QR, and the iPhone can encode its answer into a second QR. The devices then communicate directly.
-
-That design still depends on the HTTPS host to load the application, unless it is installed and cached as a PWA. WebRTC SDP and ICE data can also exceed comfortable single-QR capacity, Safari may suspend capture, and reconnection requires repeating the exchange. Those limitations are why the native app is the primary implementation.
-
 ## Troubleshooting
-
-### First launch or View Monitor is delayed
-
-Build 10 RC9 retains temporary non-sensitive lifecycle timing. In Xcode's console, filter for `MM_DIAG`, perform one fresh launch, tap **View Monitor** once, and copy the complete sequence. RC9 includes the deterministic software-rendered QR path from RC8 plus the angled-monitor in-app logo and matching Home Screen icon. The events contain fixed labels and elapsed seconds only; they do not contain pairing secrets, service identities, images, or monitor content.
-
-- A gap before `root.appeared` isolates app/root rendering.
-- A gap from `viewer.listener.begin` to `viewer.listener.created` isolates Network.framework listener construction.
-- A gap from `viewer.listener.created` to `viewer.listener.installed` indicates the main actor was unavailable.
-- A gap from `viewer.qr.begin` to `viewer.qr.ready` isolates QR rendering.
-- If all elapsed values remain near zero despite a long launch screen, the delay occurs before Monitor Mirror's Swift lifecycle begins.
 
 ### The devices do not find each other
 
