@@ -1,5 +1,17 @@
 # Release notes
 
+## 1.0.1 (Build 7) RC6 — Responsive cold launch and QR setup
+
+- Removes global camera-pipeline construction from app launch; the iPhone sender now owns its camera processor
+- Lazily initializes `AVCaptureSession`, video output, and camera Core Image resources only when camera work begins
+- Publishes the iPad pairing payload before listener setup and constructs the TLS/Bonjour listener on the network queue
+- Renders the QR code off the main actor with an immediate progress state instead of blocking the first viewer transition
+- Reuses a lazily initialized QR Core Image context for fast subsequent code generation
+- Updates the in-app description to: “Privately share a perspective-corrected view of an angled monitor between two nearby Apple devices.”
+- Adds three focused cold-path regressions; full source regression count is now 25
+
+Physical Xcode compilation and first-launch testing on an iPad disconnected from infrastructure Wi-Fi are required before promotion from release candidate to stable.
+
 ## 1.0.1 (Build 6) RC5 — Graceful Stop Sharing teardown
 
 - Sends an authenticated and encrypted end-session control packet when the iPhone user taps **Stop Sharing**

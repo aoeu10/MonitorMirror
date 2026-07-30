@@ -7,9 +7,47 @@ SENDER = (ROOT / "MonitorMirror/SenderView.swift").read_text()
 VIEWER = (ROOT / "MonitorMirror/ViewerView.swift").read_text()
 INFO = (ROOT / "MonitorMirror/Info.plist").read_text()
 PAIRING = (ROOT / "MonitorMirror/PairingPayload.swift").read_text()
+APP = (ROOT / "MonitorMirror/MonitorMirrorApp.swift").read_text()
+CONTENT = (ROOT / "MonitorMirror/ContentView.swift").read_text()
+QR = (ROOT / "MonitorMirror/QRCodeView.swift").read_text()
+CAMERA = (ROOT / "MonitorMirror/CameraProcessor.swift").read_text()
 
 
 class NetworkPeerConnectionSourceTests(unittest.TestCase):
+    def test_cold_app_launch_does_not_construct_camera_pipeline(self):
+        self.assertNotIn("CameraProcessor()", APP)
+        self.assertNotIn(".environmentObject(camera)", APP)
+        self.assertIn("@StateObject private var camera = CameraProcessor()", SENDER)
+        self.assertIn("private lazy var session = AVCaptureSession()", CAMERA)
+        self.assertIn("private lazy var output = AVCaptureVideoDataOutput()", CAMERA)
+        self.assertIn("private lazy var ciContext = CIContext", CAMERA)
+        self.assertIn(
+            "Privately share a perspective-corrected view of an angled monitor between two nearby Apple devices.",
+            CONTENT,
+        )
+
+    def test_qr_generation_is_off_main_and_shows_immediate_placeholder(self):
+        self.assertIn("@State private var image", QR)
+        self.assertIn(".task(id: value)", QR)
+        self.assertIn("Task.detached", QR)
+        self.assertIn("private static let context = CIContext", QR)
+        self.assertIn("Self.context.createCGImage", QR)
+        self.assertIn("ProgressView", QR)
+        self.assertNotIn("private let context = CIContext()", QR)
+        self.assertNotIn("private let filter = CIFilter.qrCodeGenerator()", QR)
+        body = QR.split("var body: some View", 1)[1].split("private", 1)[0]
+        self.assertNotIn("makeImage()", body)
+
+    def test_viewer_publishes_pairing_before_listener_initialization(self):
+        start = PEER.split("func startViewerSession()", 1)[1].split("func regenerateViewerCode", 1)[0]
+        self.assertIn("prepareViewerListener", start)
+        self.assertLess(start.index("pairingPayload = payload"), start.index("prepareViewerListener"))
+        self.assertNotIn("NWListener(", start)
+        prepare = PEER.split("private func prepareViewerListener", 1)[1].split("private func installViewerListener", 1)[0]
+        self.assertIn("networkQueue.async", prepare)
+        self.assertIn("NWListener(", prepare)
+        self.assertIn("installViewerListener", prepare)
+
     def test_uses_network_framework_not_multipeer(self):
         self.assertIn("import Network", PEER)
         self.assertNotIn("import MultipeerConnectivity", PEER)

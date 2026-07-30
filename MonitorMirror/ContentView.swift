@@ -13,7 +13,7 @@ struct ContentView: View {
                 VStack(spacing: 8) {
                     Text("Monitor Mirror")
                         .font(.largeTitle.bold())
-                    Text("Correct and privately share an angled monitor view between two nearby Apple devices.")
+                    Text("Privately share a perspective-corrected view of an angled monitor between two nearby Apple devices.")
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: 520)

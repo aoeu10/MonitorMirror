@@ -4,7 +4,7 @@ import UIKit
 struct SenderView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var peer: PeerSession
-    @EnvironmentObject private var camera: CameraProcessor
+    @StateObject private var camera = CameraProcessor()
 
     @State private var pairingAccepted = false
     @State private var scanError: String?

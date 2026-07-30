@@ -61,10 +61,10 @@ final class CameraProcessor: NSObject, ObservableObject {
         }
     }
 
-    private let session = AVCaptureSession()
-    private let output = AVCaptureVideoDataOutput()
+    private lazy var session = AVCaptureSession()
+    private lazy var output = AVCaptureVideoDataOutput()
     private let captureQueue = DispatchQueue(label: "MonitorMirror.camera", qos: .userInitiated)
-    private let ciContext = CIContext(options: [.cacheIntermediates: false])
+    private lazy var ciContext = CIContext(options: [.cacheIntermediates: false])
 
     private var activeCorners: CornerSet?
     private var locked = false

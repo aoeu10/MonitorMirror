@@ -1,8 +1,8 @@
-# Monitor Mirror 1.0.1 RC5 — Network Transport Security Review
+# Monitor Mirror 1.0.1 RC6 — Network Transport and Lifecycle Review
 
 **Scope:** Source-level review on Linux
 
-**Version:** 1.0.1 (Build 6) RC5
+**Version:** 1.0.1 (Build 7) RC6
 **Runtime status:** Xcode compilation, installed-device adversarial tests, and packet capture remain pending.
 
 ## Executive summary
@@ -32,6 +32,8 @@ These source checks establish implementation intent and structural safeguards. T
 | Camera callback synchronization | Lock-protected callback read/write across main and capture queues | PASS |
 | Disconnect cleanup | Sender disables sharing and stops capture before retry | PASS |
 | Permission/disconnect race | Lock-protected run intent is rechecked after permission and immediately before camera start | PASS |
+| Cold-launch isolation | App startup does not construct camera capture or Core Image resources; sender resources are lazy | PASS |
+| Viewer first-render isolation | Pairing state is published before off-main QR and TLS/Bonjour listener preparation | PASS |
 | Graceful session end | Authenticated end-session packet uses final-message semantics, blocks new frames, clears state, and signals both views to dismiss | PASS |
 | Frame persistence | Received frames remain in memory; no file/database write path | PASS |
 | Discovery timeout | Thirty-second deadline starts when Bonjour browsing begins and resets for TLS authentication | PASS |
@@ -52,18 +54,21 @@ TLS 1.2 transmits the PSK identity before the encrypted channel exists. The iden
 
 TLS is constrained to version 1.2 because Apple documents that Network.framework TLS-PSK is available only through the older Network.framework API and does not support TLS 1.3. This is an intentional compatibility choice for iOS 17+, not a plaintext downgrade.
 
-## Remaining physical tests
+## Physical status and remaining tests
 
-1. Compile with the user’s installed Xcode/iOS SDK.
-2. Install the same 1.0.1 build 5 RC4 on both devices.
-3. Confirm same-infrastructure Wi-Fi control remains stable.
-4. Test iPad on infrastructure Wi-Fi while iPhone Wi-Fi is enabled but unjoined.
-5. Test both devices with Wi-Fi enabled and neither joined.
-6. Attempt connection from a third device without the QR token.
-7. Attempt expired and version-1 QR codes.
-8. Capture traffic and confirm no JPEG signatures or readable monitor content appear outside TLS records.
-9. Test disconnect/retry and foreground/background transitions.
-10. Stream for at least ten minutes and monitor latency, heat, and memory.
+The user has physically confirmed same-infrastructure Wi-Fi connectivity, iPhone peer-to-peer connectivity while Wi-Fi is enabled but unjoined, and graceful **Stop Sharing** teardown on both devices in the preceding candidates.
+
+1. Compile RC6 with the user’s installed Xcode/iOS SDK.
+2. Install the same 1.0.1 build 7 RC6 on both devices.
+3. Cold-launch the iPad after disconnecting it from infrastructure Wi-Fi and confirm the role-selection screen appears promptly.
+4. On a fresh RC6 install, tap **View Monitor** and confirm its progress state and QR appear promptly.
+5. Reconfirm same-infrastructure and iPhone-unjoined peer-to-peer pairing, streaming, and **Stop Sharing** behavior.
+6. Test both devices with Wi-Fi enabled and neither joined.
+7. Attempt connection from a third device without the QR token.
+8. Attempt expired and version-1 QR codes.
+9. Capture traffic and confirm no JPEG signatures or readable monitor content appear outside TLS records.
+10. Test disconnect/retry and foreground/background transitions.
+11. Stream for at least ten minutes and monitor latency, heat, and memory.
 
 ## Compliance boundary
 

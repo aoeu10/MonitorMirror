@@ -1,6 +1,6 @@
 # Monitor Mirror
 
-Monitor Mirror is a universal iPhone/iPad app that captures a computer monitor from an angled iPhone rear camera, detects and rectifies the monitor quadrilateral, and sends the corrected view directly to a nearby iPad.
+Monitor Mirror is a universal iPhone/iPad app that privately shares a perspective-corrected view of an angled monitor between two nearby Apple devices. The iPhone captures and rectifies the monitor while the iPad displays the corrected view.
 
 The project uses only Apple frameworks. It has no package-manager dependencies, accounts, cloud backend, analytics, recording, or persistent media storage.
 

@@ -76,32 +76,8 @@ final class PeerSession: ObservableObject {
         let payload = PairingPayload.make(viewerPeerName: serviceName)
         pairingPayload = payload
         activeToken = payload.token
-
-        do {
-            let listener = try NWListener(
-                using: Self.makeTransportParameters(
-                    token: payload.token,
-                    serviceIdentity: serviceName
-                )
-            )
-            listener.service = NWListener.Service(name: serviceName, type: Self.bonjourType)
-            listener.newConnectionHandler = { [weak self] candidate in
-                Task { @MainActor [weak self] in
-                    self?.accept(candidate)
-                }
-            }
-            listener.stateUpdateHandler = { [weak self, weak listener] newState in
-                Task { @MainActor [weak self, weak listener] in
-                    guard let self, self.listener === listener else { return }
-                    self.handleListenerState(newState)
-                }
-            }
-            self.listener = listener
-            state = .advertising
-            listener.start(queue: networkQueue)
-        } catch {
-            state = .failed("Could not create the iPad listener: \(error.localizedDescription)")
-        }
+        state = .advertising
+        prepareViewerListener(payload, serviceName: serviceName)
     }
 
     func regenerateViewerCode() {
@@ -199,6 +175,60 @@ final class PeerSession: ObservableObject {
         endSessionPacketSent = false
         role = .idle
         state = .idle
+    }
+
+    private func prepareViewerListener(_ payload: PairingPayload, serviceName: String) {
+        let token = payload.token
+        networkQueue.async { [weak self] in
+            do {
+                let candidate = try NWListener(
+                    using: Self.makeTransportParameters(
+                        token: token,
+                        serviceIdentity: serviceName
+                    )
+                )
+                candidate.service = NWListener.Service(name: serviceName, type: Self.bonjourType)
+                Task { @MainActor [weak self] in
+                    self?.installViewerListener(
+                        candidate,
+                        token: token
+                    )
+                }
+            } catch {
+                let message = error.localizedDescription
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          self.role == .viewer,
+                          self.pairingPayload?.token == token else {
+                        return
+                    }
+                    self.state = .failed("Could not create the iPad listener: \(message)")
+                }
+            }
+        }
+    }
+
+    private func installViewerListener(_ candidate: NWListener, token: String) {
+        guard role == .viewer,
+              pairingPayload?.token == token,
+              listener == nil else {
+            candidate.cancel()
+            return
+        }
+
+        candidate.newConnectionHandler = { [weak self] connection in
+            Task { @MainActor [weak self] in
+                self?.accept(connection)
+            }
+        }
+        candidate.stateUpdateHandler = { [weak self, weak candidate] newState in
+            Task { @MainActor [weak self, weak candidate] in
+                guard let self, self.listener === candidate else { return }
+                self.handleListenerState(newState)
+            }
+        }
+        listener = candidate
+        candidate.start(queue: networkQueue)
     }
 
     private func accept(_ candidate: NWConnection) {
