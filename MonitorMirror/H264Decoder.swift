@@ -103,7 +103,7 @@ final class H264Decoder {
                 )
             }
         }
-        guard formatStatus == noErr, let videoFormat = createdFormat as? CMVideoFormatDescription else {
+        guard formatStatus == noErr, let videoFormat = createdFormat else {
             throw H264DecoderError.formatCreationFailed(formatStatus)
         }
 

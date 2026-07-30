@@ -1,5 +1,11 @@
 # Release notes
 
+## 1.1.0 (Build 13) RC2 — Xcode decoder type fix
+
+- Removes a redundant conditional downcast from `CMFormatDescription` to its `CMVideoFormatDescription` typealias that Xcode rejects
+- Adds a regression preventing the invalid conditional cast from returning
+- Preserves the H.264 protocol, transport behavior, approved branding, and immutable RC1/JPEG rollback artifacts
+
 ## 1.1.0 (Build 12) RC1 — VideoToolbox H.264 transport
 
 - Preserves the complete JPEG implementation at branch `jpeg-1.0.x`, tag `v1.0.1-rc10`, and its immutable RC10 ZIP

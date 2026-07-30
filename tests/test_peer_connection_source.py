@@ -78,6 +78,7 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("import VideoToolbox", H264_DECODER)
         self.assertIn("CMVideoFormatDescriptionCreateFromH264ParameterSets", H264_DECODER)
         self.assertIn("var pointers: [UnsafePointer<UInt8>]", H264_DECODER)
+        self.assertNotIn("as? CMVideoFormatDescription", H264_DECODER)
         self.assertIn("VTDecompressionSessionCreate", H264_DECODER)
         self.assertIn("CMBlockBufferCreateWithMemoryBlock", H264_DECODER)
         self.assertIn("CMBlockBufferReplaceDataBytes", H264_DECODER)

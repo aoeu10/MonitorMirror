@@ -1,12 +1,12 @@
-# Monitor Mirror 1.1.0 RC1 — H.264, Transport, and Lifecycle Review
+# Monitor Mirror 1.1.0 RC2 — H.264, Transport, and Lifecycle Review
 
 **Scope:** Source-level and structural review on Linux
-**Version:** 1.1.0 (Build 12) RC1
+**Version:** 1.1.0 (Build 13) RC2
 **Runtime status:** Xcode compilation, VideoToolbox runtime, camera, and physical peer-to-peer testing remain pending.
 
 ## Executive summary
 
-RC1 replaces JPEG media with Apple VideoToolbox H.264 while retaining the established QR-authenticated Network.framework TLS-PSK connection. Media packets remain length-prefixed and bounded. Sender backpressure permits one active send plus one dependency-valid pending access unit. If that slot is full, it requests a fresh keyframe and rejects later deltas until recovery rather than breaking the H.264 reference chain. The encrypted graceful end command remains packet type 2 and cannot overtake active media.
+RC2 carries the RC1 H.264 media implementation plus an Xcode compile correction for redundant Core Media typealias downcasting, while retaining the established QR-authenticated Network.framework TLS-PSK connection. Media packets remain length-prefixed and bounded. Sender backpressure permits one active send plus one dependency-valid pending access unit. If that slot is full, it requests a fresh keyframe and rejects later deltas until recovery rather than breaking the H.264 reference chain. The encrypted graceful end command remains packet type 2 and cannot overtake active media.
 
 Linux checks establish source intent and project structure only. They cannot prove VideoToolbox API linkage, hardware codec behavior, output callback timing, real-device readability, thermal behavior, or peer-to-peer performance.
 
@@ -79,8 +79,8 @@ The sender keeps no unbounded encoded queue. If no send is active, an access uni
 
 ## Physical test matrix
 
-1. Compile RC1 with Xcode and the installed iOS SDK.
-2. Install build 12 on both physical devices; confirm version-2 JPEG codes are rejected explicitly.
+1. Compile RC2 with Xcode and the installed iOS SDK.
+2. Install build 13 on both physical devices; confirm version-2 JPEG codes are rejected explicitly.
 3. Confirm first keyframe displays after Share and no stale frame survives from a previous session.
 4. Test shared infrastructure Wi-Fi and Wi-Fi enabled but unjoined on both devices.
 5. Run Stop Sharing while an H.264 access unit is active; confirm both views return to role selection.
