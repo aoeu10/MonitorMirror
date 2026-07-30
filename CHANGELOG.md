@@ -1,5 +1,14 @@
 # Release notes
 
+## 1.0.1 (Build 10) RC9 — Perspective monitor identity
+
+- Adds an original perspective-skewed monitor logo with four correction handles, reflected light, and a monitor stand
+- Replaces the generic SF Symbol above the **Monitor Mirror** title with the branded artwork
+- Adds an opaque 1024×1024 universal iOS app icon for the Home Screen
+- Adds matching 1×, 2×, and 3× in-app image assets
+- Wires the new asset catalog into the Xcode resources phase and selects `AppIcon` for Debug and Release
+- Adds structural asset checks for PNG dimensions, opacity/color type, image scales, project membership, and SwiftUI usage; full source regression count is now 29
+
 ## 1.0.1 (Build 9) RC8 — First-use QR responsiveness
 
 - Makes pairing JSON deterministic with sorted keys so SwiftUI's QR task ID remains stable across view reevaluations

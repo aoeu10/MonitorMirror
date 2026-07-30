@@ -1,4 +1,6 @@
 from pathlib import Path
+import json
+import struct
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +16,49 @@ CAMERA = (ROOT / "MonitorMirror/CameraProcessor.swift").read_text()
 
 
 class NetworkPeerConnectionSourceTests(unittest.TestCase):
+    def test_perspective_monitor_logo_is_used_in_app_and_home_screen(self):
+        assets = ROOT / "MonitorMirror/Assets.xcassets"
+        app_icon = assets / "AppIcon.appiconset/AppIcon-1024.png"
+        logo_set = assets / "MonitorMirrorLogo.imageset"
+
+        self.assertTrue(app_icon.is_file())
+        self.assertEqual(self._png_metadata(app_icon), (1024, 1024, 2))
+        app_contents = json.loads((app_icon.parent / "Contents.json").read_text())
+        self.assertIn(
+            {
+                "filename": "AppIcon-1024.png",
+                "idiom": "universal",
+                "platform": "ios",
+                "size": "1024x1024",
+            },
+            app_contents["images"],
+        )
+
+        expected_logos = {
+            "MonitorMirrorLogo.png": (256, 256, 2),
+            "MonitorMirrorLogo@2x.png": (512, 512, 2),
+            "MonitorMirrorLogo@3x.png": (768, 768, 2),
+        }
+        for filename, metadata in expected_logos.items():
+            self.assertEqual(self._png_metadata(logo_set / filename), metadata)
+
+        logo_contents = json.loads((logo_set / "Contents.json").read_text())
+        self.assertEqual({image["scale"] for image in logo_contents["images"]}, {"1x", "2x", "3x"})
+        self.assertIn('Image("MonitorMirrorLogo")', CONTENT)
+        self.assertNotIn('rectangle.inset.filled.and.person.filled', CONTENT)
+
+        project = (ROOT / "MonitorMirror.xcodeproj/project.pbxproj").read_text()
+        self.assertIn("Assets.xcassets in Resources", project)
+        self.assertEqual(project.count("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;"), 2)
+
+    @staticmethod
+    def _png_metadata(path):
+        data = path.read_bytes()[:26]
+        if data[:8] != b"\x89PNG\r\n\x1a\n":
+            raise AssertionError(f"Not a PNG: {path}")
+        width, height = struct.unpack(">II", data[16:24])
+        return width, height, data[25]
+
     def test_root_uses_backward_compatible_iphone_symbol(self):
         self.assertNotIn('systemImage: "iphone.gen3.camera"', CONTENT)
         self.assertIn('systemImage: "iphone"', CONTENT)

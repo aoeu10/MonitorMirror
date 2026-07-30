@@ -10,9 +10,13 @@ struct ContentView: View {
             VStack(spacing: 28) {
                 Spacer()
 
-                Image(systemName: "rectangle.inset.filled.and.person.filled")
-                    .font(.system(size: 68))
-                    .foregroundStyle(.blue.gradient)
+                Image("MonitorMirrorLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 112, height: 112)
+                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    .shadow(color: .blue.opacity(0.22), radius: 14, y: 8)
+                    .accessibilityHidden(true)
 
                 VStack(spacing: 8) {
                     Text("Monitor Mirror")
