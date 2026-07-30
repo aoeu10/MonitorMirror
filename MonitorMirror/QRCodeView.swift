@@ -29,13 +29,13 @@ struct QRCodeView: View {
             generationFailed = false
 
             let encodedValue = value
-            let pngData = await Task.detached(priority: .userInitiated) {
-                QRCodeRenderer.pngData(for: encodedValue)
+            let rendered = await Task.detached(priority: .userInitiated) {
+                QRCodeRenderer.image(for: encodedValue)
             }.value
 
             guard !Task.isCancelled else { return }
-            if let pngData, let rendered = UIImage(data: pngData) {
-                image = rendered
+            if let rendered {
+                image = UIImage(cgImage: rendered.cgImage)
                 LaunchDiagnostics.mark("viewer.qr.ready")
             } else {
                 generationFailed = true
@@ -44,10 +44,17 @@ struct QRCodeView: View {
     }
 }
 
-private enum QRCodeRenderer {
-    private static let context = CIContext(options: [.cacheIntermediates: false])
+private struct RenderedQRCode: @unchecked Sendable {
+    let cgImage: CGImage
+}
 
-    static func pngData(for value: String) -> Data? {
+private enum QRCodeRenderer {
+    private static let context = CIContext(options: [
+        .useSoftwareRenderer: true,
+        .cacheIntermediates: false,
+    ])
+
+    static func image(for value: String) -> RenderedQRCode? {
         autoreleasepool {
             let filter = CIFilter.qrCodeGenerator()
             filter.message = Data(value.utf8)
@@ -62,7 +69,7 @@ private enum QRCodeRenderer {
             guard let cgImage = Self.context.createCGImage(output, from: output.extent) else {
                 return nil
             }
-            return UIImage(cgImage: cgImage).pngData()
+            return RenderedQRCode(cgImage: cgImage)
         }
     }
 }

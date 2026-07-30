@@ -1,8 +1,8 @@
-# Monitor Mirror 1.0.1 RC7 — Diagnostic Network Transport and Lifecycle Review
+# Monitor Mirror 1.0.1 RC8 — Diagnostic Network Transport and Lifecycle Review
 
 **Scope:** Source-level review on Linux
 
-**Version:** 1.0.1 (Build 8) RC7
+**Version:** 1.0.1 (Build 9) RC8
 **Runtime status:** Xcode compilation, installed-device adversarial tests, and packet capture remain pending.
 
 ## Executive summary
@@ -34,6 +34,7 @@ These source checks establish implementation intent and structural safeguards. T
 | Permission/disconnect race | Lock-protected run intent is rechecked after permission and immediately before camera start | PASS |
 | Cold-launch isolation | App startup does not construct camera capture or Core Image resources; sender resources are lazy | PASS |
 | Viewer first-render isolation | Pairing state is published before off-main QR and TLS/Bonjour listener preparation | PASS |
+| Stable low-contention QR rendering | Sorted-key payload encoding stabilizes the task ID; software Core Image rendering returns immutable `CGImage` without a PNG round trip | PASS |
 | Graceful session end | Authenticated end-session packet uses final-message semantics, blocks new frames, clears state, and signals both views to dismiss | PASS |
 | Frame persistence | Received frames remain in memory; no file/database write path | PASS |
 | Discovery timeout | Thirty-second deadline starts when Bonjour browsing begins and resets for TLS authentication | PASS |
@@ -58,11 +59,11 @@ TLS is constrained to version 1.2 because Apple documents that Network.framework
 
 The user has physically confirmed same-infrastructure Wi-Fi connectivity, iPhone peer-to-peer connectivity while Wi-Fi is enabled but unjoined, and graceful **Stop Sharing** teardown on both devices in the preceding candidates.
 
-1. Compile RC7 with the user’s installed Xcode/iOS SDK.
-2. Install the same 1.0.1 build 8 RC7 on both devices.
-3. Delete the prior app first, launch RC7 from Xcode once, filter the console for `MM_DIAG`, and retain every matching line.
-4. Cold-launch each device from the Home Screen with Xcode detached and compare the visible delay with the attached launch.
-5. On the first RC7 run, tap **View Monitor** once and capture the complete `MM_DIAG` sequence through `viewer.qr.ready`.
+1. Compile RC8 with the user’s installed Xcode/iOS SDK.
+2. Install the same 1.0.1 build 9 RC8 on both devices.
+3. Delete the prior app first, launch RC8 from Xcode once, filter the console for `MM_DIAG`, and retain every matching line.
+4. Confirm a subsequent Home Screen launch remains immediate; fresh Xcode install/debug launch timing is tracked separately from normal app launch.
+5. On the first RC8 run, tap **View Monitor** once and confirm there is only one `viewer.qr.begin`, `viewer.listener.installed` follows promptly, and `viewer.qr.ready` appears without a gesture timeout.
 6. Confirm the nonexistent-symbol warning for `iphone.gen3.camera` no longer appears.
 7. Reconfirm same-infrastructure and iPhone-unjoined peer-to-peer pairing, streaming, and **Stop Sharing** behavior.
 8. Test both devices with Wi-Fi enabled and neither joined.

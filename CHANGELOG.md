@@ -1,5 +1,16 @@
 # Release notes
 
+## 1.0.1 (Build 9) RC8 — First-use QR responsiveness
+
+- Makes pairing JSON deterministic with sorted keys so SwiftUI's QR task ID remains stable across view reevaluations
+- Uses Core Image's software renderer for the small QR image to avoid first-use GPU/Metal contention with SwiftUI
+- Returns an immutable `CGImage` from the detached renderer and constructs `UIImage` directly on the main actor
+- Removes the previous PNG encoding, transfer, and decoding round trip
+- Retains temporary `MM_DIAG` timing for one physical confirmation run
+- Adds a focused regression for stable payload encoding and the low-contention rendering path; full source regression count is now 28
+
+RC7 physical timing showed Home Screen relaunches were instant. The remaining fresh-launch delay occurred only when starting through Xcode. Its first **View Monitor** trace showed listener construction completed in one millisecond, but QR rendering restarted and held up main-actor listener installation for several seconds.
+
 ## 1.0.1 (Build 8) RC7 — Launch timing diagnostics and SF Symbol correction
 
 - Replaces the nonexistent `iphone.gen3.camera` SF Symbol with the backward-compatible `iphone` symbol

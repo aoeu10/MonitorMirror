@@ -25,6 +25,7 @@ struct PairingPayload: Codable, Equatable {
     func encoded() throws -> String {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .secondsSince1970
+        encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(self).base64URLEncodedString()
     }
 

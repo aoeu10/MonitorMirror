@@ -139,7 +139,7 @@ That design still depends on the HTTPS host to load the application, unless it i
 
 ### First launch or View Monitor is delayed
 
-Build 8 RC7 contains temporary non-sensitive lifecycle timing. In Xcode's console, filter for `MM_DIAG`, perform one fresh launch, tap **View Monitor** once, and copy the complete sequence. The events contain fixed labels and elapsed seconds only; they do not contain pairing secrets, service identities, images, or monitor content.
+Build 9 RC8 contains temporary non-sensitive lifecycle timing. In Xcode's console, filter for `MM_DIAG`, perform one fresh launch, tap **View Monitor** once, and copy the complete sequence. RC8 makes QR payload encoding deterministic, uses software rendering for the QR image, and removes PNG encoding/decoding. The events contain fixed labels and elapsed seconds only; they do not contain pairing secrets, service identities, images, or monitor content.
 
 - A gap before `root.appeared` isolates app/root rendering.
 - A gap from `viewer.listener.begin` to `viewer.listener.created` isolates Network.framework listener construction.

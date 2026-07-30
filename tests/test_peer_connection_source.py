@@ -63,6 +63,15 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         body = QR.split("var body: some View", 1)[1].split("private", 1)[0]
         self.assertNotIn("makeImage()", body)
 
+    def test_qr_payload_and_renderer_avoid_first_use_restart_and_gpu_contention(self):
+        self.assertIn("encoder.outputFormatting = [.sortedKeys]", PAIRING)
+        self.assertIn(".useSoftwareRenderer: true", QR)
+        self.assertIn("struct RenderedQRCode: @unchecked Sendable", QR)
+        self.assertIn("QRCodeRenderer.image(for:", QR)
+        self.assertNotIn("QRCodeRenderer.pngData(for:", QR)
+        self.assertNotIn("UIImage(data:", QR)
+        self.assertNotIn(".pngData()", QR)
+
     def test_viewer_publishes_pairing_before_listener_initialization(self):
         start = PEER.split("func startViewerSession()", 1)[1].split("func regenerateViewerCode", 1)[0]
         self.assertIn("prepareViewerListener", start)
