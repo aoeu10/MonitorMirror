@@ -35,8 +35,8 @@ final class PeerSession: ObservableObject {
     }
 
     private nonisolated static let bonjourType = "_monmirror._tcp"
-    private nonisolated static let framePacket: UInt8 = 1
     private nonisolated static let endSessionPacket: UInt8 = 2
+    private nonisolated static let h264FramePacket: UInt8 = 3
     private nonisolated static let headerBytes = 5
     private nonisolated static let maximumFrameBytes = 4 * 1_024 * 1_024
     private nonisolated static let peerToPeerFailureMessage =
@@ -49,6 +49,7 @@ final class PeerSession: ObservableObject {
     @Published private(set) var pairingPayload: PairingPayload?
     @Published private(set) var receivedFrame: UIImage?
     @Published private(set) var sessionEndSequence = 0
+    var keyFrameRequestHandler: (() -> Void)?
 
     private let networkQueue = DispatchQueue(label: "MonitorMirror.network", qos: .userInitiated)
     private var listener: NWListener?
@@ -58,10 +59,12 @@ final class PeerSession: ObservableObject {
     private var expectedViewerName: String?
     private var connectionTimeoutTask: Task<Void, Never>?
     private var endSessionTimeoutTask: Task<Void, Never>?
-    private var pendingFrame: Data?
+    private var pendingAccessUnit: H264AccessUnit?
     private var sendInFlight = false
+    private var waitingForKeyFrame = false
     private var endingSession = false
     private var endSessionPacketSent = false
+    private var decoder: H264Decoder?
 
     init() {
         LaunchDiagnostics.mark("peer.init")
@@ -126,17 +129,31 @@ final class PeerSession: ObservableObject {
         browser.start(queue: networkQueue)
     }
 
-    func sendCorrectedFrame(_ jpegData: Data) {
+    func sendEncodedFrame(_ accessUnit: H264AccessUnit) {
         guard role == .sender,
               isConnected,
               !endingSession,
-              !jpegData.isEmpty,
-              jpegData.count <= Self.maximumFrameBytes else {
+              accessUnit.isKeyFrame || !waitingForKeyFrame else {
             return
         }
 
-        pendingFrame = jpegData
-        sendPendingFrameIfNeeded()
+        do {
+            guard try accessUnit.encodedPayload().count <= Self.maximumFrameBytes else { return }
+        } catch {
+            state = .failed("H.264 video encoding failed.")
+            connection?.cancel()
+            return
+        }
+        if pendingAccessUnit != nil, !accessUnit.isKeyFrame {
+            waitingForKeyFrame = true
+            keyFrameRequestHandler?()
+            return
+        }
+        if accessUnit.isKeyFrame {
+            waitingForKeyFrame = false
+        }
+        pendingAccessUnit = accessUnit
+        sendPendingAccessUnitIfNeeded()
     }
 
     func endSession() {
@@ -147,7 +164,7 @@ final class PeerSession: ObservableObject {
         }
 
         endingSession = true
-        pendingFrame = nil
+        pendingAccessUnit = nil
         if sendInFlight { return }
         sendEndSessionPacket()
     }
@@ -176,8 +193,11 @@ final class PeerSession: ObservableObject {
         activeToken = nil
         expectedViewerName = nil
         receivedFrame = nil
-        pendingFrame = nil
+        pendingAccessUnit = nil
+        decoder?.invalidate()
+        decoder = nil
         sendInFlight = false
+        waitingForKeyFrame = false
         endingSession = false
         endSessionPacketSent = false
         role = .idle
@@ -374,8 +394,9 @@ final class PeerSession: ObservableObject {
         connectionTimeoutTask?.cancel()
         connectionTimeoutTask = nil
         connection = nil
-        pendingFrame = nil
+        pendingAccessUnit = nil
         sendInFlight = false
+        waitingForKeyFrame = false
 
         if endingSession {
             finishSession()
@@ -449,18 +470,27 @@ final class PeerSession: ObservableObject {
         )
     }
 
-    private func sendPendingFrameIfNeeded() {
+    private func sendPendingAccessUnitIfNeeded() {
         guard !sendInFlight,
               !endingSession,
-              let frame = pendingFrame,
+              let accessUnit = pendingAccessUnit,
               let connection,
               isConnected else {
             return
         }
 
-        pendingFrame = nil
+        let payload: Data
+        do {
+            payload = try accessUnit.encodedPayload()
+        } catch {
+            pendingAccessUnit = nil
+            state = .failed("H.264 video encoding failed.")
+            connection.cancel()
+            return
+        }
+        pendingAccessUnit = nil
         sendInFlight = true
-        let packet = Self.makePacket(type: Self.framePacket, payload: frame)
+        let packet = Self.makePacket(type: Self.h264FramePacket, payload: payload)
 
         connection.send(content: packet, completion: .contentProcessed { [weak self, weak connection] error in
             Task { @MainActor [weak self, weak connection] in
@@ -484,7 +514,7 @@ final class PeerSession: ObservableObject {
                     self.sendEndSessionPacket()
                     return
                 }
-                self.sendPendingFrameIfNeeded()
+                self.sendPendingAccessUnitIfNeeded()
             }
         })
     }
@@ -560,12 +590,20 @@ final class PeerSession: ObservableObject {
                     return
                 }
 
-                guard type == Self.framePacket, let image = UIImage(data: data) else {
+                guard type == Self.h264FramePacket else {
                     self.state = .failed("The other device sent an invalid frame.")
                     candidate.cancel()
                     return
                 }
-                self.receivedFrame = image
+                do {
+                    let accessUnit = try H264AccessUnit(payload: data)
+                    let decoder = self.decoder ?? self.makeDecoder()
+                    try decoder.decode(accessUnit)
+                } catch {
+                    self.state = .failed("The other device sent invalid H.264 video data.")
+                    candidate.cancel()
+                    return
+                }
 
                 if isComplete {
                     candidate.cancel()
@@ -574,6 +612,23 @@ final class PeerSession: ObservableObject {
                 }
             }
         }
+    }
+
+    private func makeDecoder() -> H264Decoder {
+        let decoder = H264Decoder { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self, self.role == .viewer, self.isConnected else { return }
+                switch result {
+                case .success(let image):
+                    self.receivedFrame = image
+                case .failure:
+                    self.state = .failed("H.264 video decoding failed.")
+                    self.connection?.cancel()
+                }
+            }
+        }
+        self.decoder = decoder
+        return decoder
     }
 
     private func finishSession() {

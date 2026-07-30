@@ -45,10 +45,10 @@ final class CameraProcessor: NSObject, ObservableObject {
 
     private let frameHandlerLock = NSLock()
     private let lifecycleLock = NSLock()
-    private var storedFrameHandler: ((Data) -> Void)?
+    private var storedFrameHandler: ((H264AccessUnit) -> Void)?
     private var runRequested = false
 
-    var frameHandler: ((Data) -> Void)? {
+    var frameHandler: ((H264AccessUnit) -> Void)? {
         get {
             frameHandlerLock.lock()
             defer { frameHandlerLock.unlock() }
@@ -72,6 +72,7 @@ final class CameraProcessor: NSObject, ObservableObject {
     private var frameNumber = 0
     private var lastSentAt = CFAbsoluteTimeGetCurrent()
     private var configured = false
+    private var h264Encoder: H264Encoder?
 
     func start() {
         setRunRequested(true)
@@ -101,6 +102,7 @@ final class CameraProcessor: NSObject, ObservableObject {
             guard let self else { return }
             if self.session.isRunning { self.session.stopRunning() }
             self.sharing = false
+            self.stopEncoder()
             DispatchQueue.main.async {
                 self.isRunning = false
                 self.isSharing = false
@@ -110,11 +112,15 @@ final class CameraProcessor: NSObject, ObservableObject {
 
     func redetect() {
         captureQueue.async { [weak self] in
-            self?.locked = false
-            self?.activeCorners = nil
+            guard let self else { return }
+            self.sharing = false
+            self.stopEncoder()
+            self.locked = false
+            self.activeCorners = nil
             DispatchQueue.main.async {
-                self?.isLocked = false
-                self?.corners = nil
+                self.isSharing = false
+                self.isLocked = false
+                self.corners = nil
             }
         }
     }
@@ -129,8 +135,20 @@ final class CameraProcessor: NSObject, ObservableObject {
     func setSharing(_ value: Bool) {
         captureQueue.async { [weak self] in
             guard let self else { return }
-            self.sharing = value && self.activeCorners != nil
+            if value, self.activeCorners != nil {
+                self.startEncoderIfNeeded()
+                self.sharing = self.h264Encoder != nil
+            } else {
+                self.sharing = false
+                self.stopEncoder()
+            }
             DispatchQueue.main.async { self.isSharing = self.sharing }
+        }
+    }
+
+    func requestKeyFrame() {
+        captureQueue.async { [weak self] in
+            self?.h264Encoder?.requestKeyFrame()
         }
     }
 
@@ -274,11 +292,27 @@ final class CameraProcessor: NSObject, ObservableObject {
         return UIImage(cgImage: cgImage)
     }
 
-    private func makeJPEG(from image: CIImage) -> Data? {
-        guard let cgImage = ciContext.createCGImage(image, from: image.extent) else {
-            return nil
+    private func startEncoderIfNeeded() {
+        guard h264Encoder == nil else { return }
+        do {
+            h264Encoder = try H264Encoder(ciContext: ciContext) { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case .success(let accessUnit):
+                    let handler = self.frameHandler
+                    handler?(accessUnit)
+                case .failure(let error):
+                    self.publishError(error.localizedDescription)
+                }
+            }
+        } catch {
+            publishError(error.localizedDescription)
         }
-        return UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.68)
+    }
+
+    private func stopEncoder() {
+        h264Encoder?.invalidate()
+        h264Encoder = nil
     }
 
     private func publishError(_ message: String) {
@@ -308,15 +342,17 @@ extension CameraProcessor: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         guard sharing,
               let activeCorners,
-              CFAbsoluteTimeGetCurrent() - lastSentAt >= 0.10,
-              let corrected = correctedImage(from: image, corners: activeCorners),
-              let jpeg = makeJPEG(from: corrected) else {
+              CFAbsoluteTimeGetCurrent() - lastSentAt >= (1.0 / Double(H264Encoder.framesPerSecond)),
+              let corrected = correctedImage(from: image, corners: activeCorners) else {
             return
         }
 
         lastSentAt = CFAbsoluteTimeGetCurrent()
-        let handler = frameHandler
-        handler?(jpeg)
+        do {
+            try self.h264Encoder?.encode(corrected)
+        } catch {
+            publishError(error.localizedDescription)
+        }
     }
 }
 

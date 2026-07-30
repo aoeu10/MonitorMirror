@@ -14,9 +14,82 @@ CONTENT = (ROOT / "MonitorMirror/ContentView.swift").read_text()
 QR = (ROOT / "MonitorMirror/QRCodeView.swift").read_text()
 CAMERA = (ROOT / "MonitorMirror/CameraProcessor.swift").read_text()
 README = (ROOT / "README.md").read_text()
+H264_ACCESS_UNIT_PATH = ROOT / "MonitorMirror/H264AccessUnit.swift"
+H264_ACCESS_UNIT = H264_ACCESS_UNIT_PATH.read_text() if H264_ACCESS_UNIT_PATH.exists() else ""
+H264_ENCODER_PATH = ROOT / "MonitorMirror/H264Encoder.swift"
+H264_ENCODER = H264_ENCODER_PATH.read_text() if H264_ENCODER_PATH.exists() else ""
+H264_DECODER_PATH = ROOT / "MonitorMirror/H264Decoder.swift"
+H264_DECODER = H264_DECODER_PATH.read_text() if H264_DECODER_PATH.exists() else ""
 
 
 class NetworkPeerConnectionSourceTests(unittest.TestCase):
+    def test_protocol_three_defines_bounded_self_contained_h264_access_units(self):
+        self.assertIn("static let currentVersion = 3", PAIRING)
+        self.assertIn("struct H264AccessUnit", H264_ACCESS_UNIT)
+        self.assertIn("static let maximumSampleBytes", H264_ACCESS_UNIT)
+        self.assertIn("func encodedPayload() throws -> Data", H264_ACCESS_UNIT)
+        self.assertIn("init(payload: Data) throws", H264_ACCESS_UNIT)
+        self.assertIn("guard flags & ~Self.supportedFlags == 0", H264_ACCESS_UNIT)
+        self.assertIn("guard sampleLength > 0", H264_ACCESS_UNIT)
+        self.assertIn("guard sampleLength <= Self.maximumSampleBytes", H264_ACCESS_UNIT)
+        self.assertIn("guard payload.count == Self.headerBytes + spsLength + ppsLength + sampleLength", H264_ACCESS_UNIT)
+        self.assertIn("guard !isKeyFrame || (sps != nil && pps != nil)", H264_ACCESS_UNIT)
+        self.assertIn("guard isKeyFrame || (sps == nil && pps == nil)", H264_ACCESS_UNIT)
+
+    def test_h264_encoder_uses_realtime_videotoolbox_with_recovery_keyframes(self):
+        self.assertIn("import VideoToolbox", H264_ENCODER)
+        self.assertIn("VTCompressionSessionCreate", H264_ENCODER)
+        self.assertIn("width: CGFloat(H264Encoder.width)", H264_ENCODER)
+        self.assertIn("height: CGFloat(H264Encoder.height)", H264_ENCODER)
+        self.assertIn("kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_RealTime", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_ProfileLevel", H264_ENCODER)
+        self.assertIn("kVTProfileLevel_H264_Baseline_AutoLevel", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_AllowFrameReordering", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_ExpectedFrameRate", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_AverageBitRate", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_MaxKeyFrameInterval", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration", H264_ENCODER)
+        self.assertIn("kVTCompressionPropertyKey_MaxFrameDelayCount", H264_ENCODER)
+        self.assertIn("to: NSNumber(value: 1)", H264_ENCODER)
+        self.assertIn("VTCompressionSessionGetPixelBufferPool", H264_ENCODER)
+        self.assertIn("kVTEncodeFrameOptionKey_ForceKeyFrame", H264_ENCODER)
+        self.assertIn("VTCompressionSessionEncodeFrame", H264_ENCODER)
+        self.assertIn("CMVideoFormatDescriptionGetH264ParameterSetAtIndex", H264_ENCODER)
+        self.assertIn("CMBlockBufferCopyDataBytes", H264_ENCODER)
+        self.assertIn("VTCompressionSessionCompleteFrames", H264_ENCODER)
+        self.assertIn("VTCompressionSessionInvalidate", H264_ENCODER)
+
+    def test_camera_lazily_encodes_corrected_images_as_h264_and_stops_codec(self):
+        self.assertIn("private var h264Encoder: H264Encoder?", CAMERA)
+        self.assertIn("private var storedFrameHandler: ((H264AccessUnit) -> Void)?", CAMERA)
+        self.assertIn("var frameHandler: ((H264AccessUnit) -> Void)?", CAMERA)
+        self.assertIn("private func startEncoderIfNeeded()", CAMERA)
+        self.assertIn("H264Encoder(ciContext: ciContext)", CAMERA)
+        self.assertIn("try self.h264Encoder?.encode(corrected)", CAMERA)
+        self.assertIn("private func stopEncoder()", CAMERA)
+        self.assertIn("h264Encoder?.invalidate()", CAMERA)
+        self.assertNotIn("makeJPEG", CAMERA)
+        self.assertNotIn("jpegData", CAMERA)
+        self.assertIn("activePeer?.sendEncodedFrame(accessUnit)", SENDER)
+        self.assertNotIn("sendCorrectedFrame", SENDER)
+
+    def test_h264_decoder_requires_configuration_and_tears_down_async_work(self):
+        self.assertIn("import VideoToolbox", H264_DECODER)
+        self.assertIn("CMVideoFormatDescriptionCreateFromH264ParameterSets", H264_DECODER)
+        self.assertIn("var pointers: [UnsafePointer<UInt8>]", H264_DECODER)
+        self.assertIn("VTDecompressionSessionCreate", H264_DECODER)
+        self.assertIn("CMBlockBufferCreateWithMemoryBlock", H264_DECODER)
+        self.assertIn("CMBlockBufferReplaceDataBytes", H264_DECODER)
+        self.assertIn("CMSampleBufferCreateReady", H264_DECODER)
+        self.assertIn("VTDecompressionSessionDecodeFrame", H264_DECODER)
+        self.assertIn("._EnableAsynchronousDecompression", H264_DECODER)
+        self.assertIn("._1xRealTimePlayback", H264_DECODER)
+        self.assertIn("CIImage(cvPixelBuffer: imageBuffer)", H264_DECODER)
+        self.assertIn("VTDecompressionSessionWaitForAsynchronousFrames", H264_DECODER)
+        self.assertIn("VTDecompressionSessionInvalidate", H264_DECODER)
+        self.assertIn("guard accessUnit.isKeyFrame || decompressionSession != nil", H264_DECODER)
+
     def test_readme_stays_focused_on_the_native_product(self):
         self.assertIn("## Features", README)
         self.assertIn("## Current transport", README)
@@ -187,17 +260,38 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("receiveHeader", PEER)
         self.assertIn("receivePayload", PEER)
 
-    def test_sender_coalesces_frames_instead_of_building_backlog(self):
-        self.assertIn("pendingFrame", PEER)
+    def test_sender_recovers_with_keyframe_instead_of_dropping_h264_dependencies(self):
+        self.assertIn("pendingAccessUnit", PEER)
         self.assertIn("sendInFlight", PEER)
-        self.assertIn("pendingFrame = jpegData", PEER)
+        self.assertIn("private var waitingForKeyFrame = false", PEER)
+        self.assertIn("var keyFrameRequestHandler: (() -> Void)?", PEER)
+        self.assertIn("accessUnit.isKeyFrame || !waitingForKeyFrame else", PEER)
+        self.assertIn("if pendingAccessUnit != nil, !accessUnit.isKeyFrame", PEER)
+        self.assertIn("waitingForKeyFrame = true", PEER)
+        self.assertIn("keyFrameRequestHandler?()", PEER)
+        self.assertIn("if accessUnit.isKeyFrame", PEER)
+        self.assertIn("waitingForKeyFrame = false", PEER)
+        self.assertIn("func requestKeyFrame()", CAMERA)
+        self.assertIn("h264Encoder?.requestKeyFrame()", CAMERA)
+        self.assertIn("activePeer.keyFrameRequestHandler", SENDER)
+
+    def test_transport_sends_packet_three_h264_and_decodes_without_jpeg(self):
+        self.assertIn("h264FramePacket: UInt8 = 3", PEER)
+        self.assertIn("func sendEncodedFrame(_ accessUnit: H264AccessUnit)", PEER)
+        self.assertIn("try accessUnit.encodedPayload()", PEER)
+        self.assertIn("makePacket(type: Self.h264FramePacket", PEER)
+        self.assertIn("let accessUnit = try H264AccessUnit(payload: data)", PEER)
+        self.assertIn("try decoder.decode(accessUnit)", PEER)
+        self.assertIn("decoder?.invalidate()", PEER)
+        self.assertNotIn("framePacket: UInt8 = 1", PEER)
+        self.assertNotIn("UIImage(data: data)", PEER)
 
     def test_camera_frame_handler_is_synchronized_across_queues(self):
         camera = (ROOT / "MonitorMirror/CameraProcessor.swift").read_text()
         self.assertIn("frameHandlerLock", camera)
         self.assertIn("NSLock", camera)
-        self.assertIn("let handler = frameHandler", camera)
-        self.assertIn("handler?(jpeg)", camera)
+        self.assertIn("let handler = self.frameHandler", camera)
+        self.assertIn("handler?(accessUnit)", camera)
 
     def test_pending_camera_permission_cannot_restart_after_disconnect(self):
         camera = (ROOT / "MonitorMirror/CameraProcessor.swift").read_text()
@@ -217,7 +311,7 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
             self.assertIn("camera.stop()", section)
 
     def test_discovery_and_authentication_both_have_deadlines(self):
-        join = PEER.split("func joinViewer", 1)[1].split("func sendCorrectedFrame", 1)[0]
+        join = PEER.split("func joinViewer", 1)[1].split("func sendEncodedFrame", 1)[0]
         timeout = PEER.split("private func beginConnectionTimeout", 1)[1].split("private func", 1)[0]
         self.assertIn("beginConnectionTimeout()", join)
         self.assertIn("self.state == .searching || self.state == .connecting", timeout)
@@ -236,8 +330,8 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("_monmirror._tcp", PEER)
         self.assertIn("_monmirror._tcp", INFO)
 
-    def test_qr_protocol_version_rejects_incompatible_multipeer_builds(self):
-        self.assertIn("static let currentVersion = 2", PAIRING)
+    def test_qr_protocol_version_rejects_incompatible_media_builds(self):
+        self.assertIn("static let currentVersion = 3", PAIRING)
         self.assertIn("case unsupportedVersion", PAIRING)
         self.assertIn("payload.version == currentVersion", PAIRING)
         self.assertIn("payload.expiresAt > Date()", PAIRING)
@@ -250,8 +344,8 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("if sendInFlight", end)
         self.assertIn("sendEndSessionPacket()", end)
         self.assertNotIn("endSessionTimeoutTask = Task", end)
-        self.assertIn("pendingFrame = nil", end)
-        final_send = PEER.split("private func sendEndSessionPacket()", 1)[1].split("private func sendPendingFrameIfNeeded", 1)[0]
+        self.assertIn("pendingAccessUnit = nil", end)
+        final_send = PEER.split("private func sendEndSessionPacket()", 1)[1].split("private func sendPendingAccessUnitIfNeeded", 1)[0]
         self.assertIn("makePacket(type: Self.endSessionPacket", final_send)
         self.assertIn("contentContext: .finalMessage", final_send)
         self.assertIn("isComplete: true", final_send)
@@ -260,9 +354,9 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         ended = PEER.split("private func handleConnectionEnded", 1)[1].split("private func beginConnectionTimeout", 1)[0]
         self.assertIn("if endingSession", ended)
         self.assertIn("finishSession()", ended)
-        send = PEER.split("func sendCorrectedFrame", 1)[1].split("func endSession", 1)[0]
+        send = PEER.split("func sendEncodedFrame", 1)[1].split("func endSession", 1)[0]
         self.assertIn("!endingSession", send)
-        frame_completion = PEER.split("private func sendPendingFrameIfNeeded", 1)[1].split("private func receiveHeader", 1)[0]
+        frame_completion = PEER.split("private func sendPendingAccessUnitIfNeeded", 1)[1].split("private func receiveHeader", 1)[0]
         self.assertIn("if self.endingSession", frame_completion)
         self.assertIn("self.sendEndSessionPacket()", frame_completion)
 
@@ -300,7 +394,8 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
             "pairingPayload = nil",
             "activeToken = nil",
             "receivedFrame = nil",
-            "pendingFrame = nil",
+            "pendingAccessUnit = nil",
+            "decoder?.invalidate()",
             "sendInFlight = false",
             "endingSession = false",
             "endSessionPacketSent = false",

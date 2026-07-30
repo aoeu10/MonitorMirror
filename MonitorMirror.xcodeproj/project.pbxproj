@@ -17,6 +17,9 @@
 		A10000000000000000000009 /* SenderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* SenderView.swift */; };
 		A10000000000000000000010 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* PrivacyInfo.xcprivacy */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* Assets.xcassets */; };
+		A10000000000000000000012 /* H264AccessUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* H264AccessUnit.swift */; };
+		A10000000000000000000013 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* H264Encoder.swift */; };
+		A10000000000000000000014 /* H264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* H264Decoder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +36,9 @@
 		B10000000000000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B10000000000000000000012 /* MonitorMirror.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MonitorMirror.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10000000000000000000014 /* H264AccessUnit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264AccessUnit.swift; sourceTree = "<group>"; };
+		B10000000000000000000015 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
+		B10000000000000000000016 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,6 +74,9 @@
 				B10000000000000000000010 /* Info.plist */,
 				B10000000000000000000011 /* PrivacyInfo.xcprivacy */,
 				B10000000000000000000013 /* Assets.xcassets */,
+				B10000000000000000000014 /* H264AccessUnit.swift */,
+				B10000000000000000000015 /* H264Encoder.swift */,
+				B10000000000000000000016 /* H264Decoder.swift */,
 			);
 			path = MonitorMirror;
 			sourceTree = "<group>";
@@ -150,6 +159,9 @@
 				A10000000000000000000007 /* CameraProcessor.swift in Sources */,
 				A10000000000000000000008 /* ViewerView.swift in Sources */,
 				A10000000000000000000009 /* SenderView.swift in Sources */,
+				A10000000000000000000012 /* H264AccessUnit.swift in Sources */,
+				A10000000000000000000013 /* H264Encoder.swift in Sources */,
+				A10000000000000000000014 /* H264Decoder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -197,13 +209,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MonitorMirror/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.MonitorMirror;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -219,12 +231,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MonitorMirror/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.MonitorMirror;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

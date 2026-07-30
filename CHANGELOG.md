@@ -1,5 +1,19 @@
 # Release notes
 
+## 1.1.0 (Build 12) RC1 — VideoToolbox H.264 transport
+
+- Preserves the complete JPEG implementation at branch `jpeg-1.0.x`, tag `v1.0.1-rc10`, and its immutable RC10 ZIP
+- Replaces JPEG generation with lazy, real-time VideoToolbox H.264 encoding after perspective correction
+- Renders corrected output to a fixed 960×540 canvas at approximately 15 FPS and 1.5 Mbps
+- Disables frame reordering, bounds the VideoToolbox compression window to one delayed frame, and emits SPS/PPS with periodic keyframes for decoder startup and recovery
+- Adds bounded, validated AVCC access-unit framing as packet type 3 while retaining packet type 2 for graceful session termination
+- Keeps one active send and one pending access unit; on pressure, retains the valid pending unit and forces a recovery keyframe instead of dropping H.264 dependencies
+- Adds VideoToolbox decoding on the iPad and destroys encoder/decoder state on disconnect, reset, or **Stop Sharing**
+- Bumps QR protocol compatibility to version 3 so JPEG and H.264 builds fail explicitly rather than hanging
+- Adds H.264 parser, codec, lifecycle, backpressure, and rollback regressions; full source regression count is now 35
+
+Native Xcode compilation and physical iPhone/iPad H.264 testing are required before promotion.
+
 ## 1.0.1 (Build 11) RC10 — Receding monitor perspective
 
 - Refines the approved logo so the monitor's top and lower edges share the same upper-right vanishing direction

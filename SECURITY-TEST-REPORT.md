@@ -1,81 +1,97 @@
-# Monitor Mirror 1.0.1 RC10 — Branding, Network Transport, and Lifecycle Review
+# Monitor Mirror 1.1.0 RC1 — H.264, Transport, and Lifecycle Review
 
-**Scope:** Source-level review on Linux
-
-**Version:** 1.0.1 (Build 11) RC10
-**Runtime status:** Xcode compilation, installed-device adversarial tests, and packet capture remain pending.
+**Scope:** Source-level and structural review on Linux
+**Version:** 1.1.0 (Build 12) RC1
+**Runtime status:** Xcode compilation, VideoToolbox runtime, camera, and physical peer-to-peer testing remain pending.
 
 ## Executive summary
 
-The candidate replaces Multipeer Connectivity with Apple Network.framework’s older `NWListener` / `NWBrowser` / `NWConnection` API so iOS 17 remains supported while Apple peer-to-peer Wi-Fi is explicitly enabled. Transport parameters require TLS 1.2 with a pre-shared key derived from the short-lived 256-bit QR token. No plaintext fallback is present.
+RC1 replaces JPEG media with Apple VideoToolbox H.264 while retaining the established QR-authenticated Network.framework TLS-PSK connection. Media packets remain length-prefixed and bounded. Sender backpressure permits one active send plus one dependency-valid pending access unit. If that slot is full, it requests a fresh keyframe and rejects later deltas until recovery rather than breaking the H.264 reference chain. The encrypted graceful end command remains packet type 2 and cannot overtake active media.
 
-These source checks establish implementation intent and structural safeguards. They do not prove that the installed build negotiates the intended cipher suite or that Apple peer-to-peer Wi-Fi forms reliably on the target iPhone/iPad combination. Those claims require physical testing.
+Linux checks establish source intent and project structure only. They cannot prove VideoToolbox API linkage, hardware codec behavior, output callback timing, real-device readability, thermal behavior, or peer-to-peer performance.
 
 ## Source-level safeguards
 
 | Safeguard | Source evidence | Status |
 |---|---|---:|
-| 256-bit pairing secret | 32 bytes from `SecRandomCopyBytes` | PASS |
-| Short-lived invitation | QR expires after 120 seconds | PASS |
-| Incompatible build rejection | QR protocol version 2; old version 1 rejected | PASS |
-| Explicit peer-to-peer route | `includePeerToPeer = true` on browser and TLS/TCP parameters used by listener and connection | PASS |
-| Mandatory encrypted transport | `NWParameters(tls: tlsOptions, tcp: tcpOptions)` only; no plaintext TCP parameters | PASS |
-| Mutual secret authentication | Explicit `TLS_PSK_WITH_AES_128_GCM_SHA256` suite and `sec_protocol_options_add_pre_shared_key` on listener and connection parameters | PASS |
-| PSK identity independence | Public random Bonjour service name is used as identity; the PSK or token hash is not exposed as identity | PASS |
-| 32-byte TLS PSK | SHA-256 of the high-entropy token text | PASS |
-| Secret absent from discovery | Bonjour advertises only random service name and type | PASS |
-| Exact viewer selection | Sender matches service name encoded in QR | PASS |
-| QR expiration at listener | Incoming candidate accepted only while payload is valid | PASS |
-| One client per viewer | Additional incoming candidates cancelled | PASS |
-| Bounded input | Four-megabyte maximum payload and length validation | PASS |
-| Bounded send backlog | One active send plus one replaceable pending frame | PASS |
-| Camera callback synchronization | Lock-protected callback read/write across main and capture queues | PASS |
-| Disconnect cleanup | Sender disables sharing and stops capture before retry | PASS |
-| Permission/disconnect race | Lock-protected run intent is rechecked after permission and immediately before camera start | PASS |
-| Cold-launch isolation | App startup does not construct camera capture or Core Image resources; sender resources are lazy | PASS |
-| Viewer first-render isolation | Pairing state is published before off-main QR and TLS/Bonjour listener preparation | PASS |
-| Stable low-contention QR rendering | Sorted-key payload encoding stabilizes the task ID; software Core Image rendering returns immutable `CGImage` without a PNG round trip | PASS |
-| Graceful session end | Authenticated end-session packet uses final-message semantics, blocks new frames, clears state, and signals both views to dismiss | PASS |
-| Frame persistence | Received frames remain in memory; no file/database write path | PASS |
-| Discovery timeout | Thirty-second deadline starts when Bonjour browsing begins and resets for TLS authentication | PASS |
-| Local Network guidance | Network.framework `EPERM` is mapped to Settings guidance | PASS |
-| Teardown | Listener, browser, connection, token, pending frame, and displayed frame cleared | PASS |
-| Sensitive logging | Temporary `MM_DIAG` output contains fixed lifecycle labels and elapsed seconds only; no token, service identity, frame, payload, or monitor content | PASS |
+| JPEG rollback | `jpeg-1.0.x`, `v1.0.1-rc10`, immutable RC10 ZIP and checksum | PASS |
+| Mixed-build rejection | QR protocol version 3; versions 1 and 2 rejected | PASS |
+| Short-lived 256-bit pairing | 32 bytes from `SecRandomCopyBytes`; 120-second expiry | PASS |
+| Mandatory encrypted transport | TLS 1.2 PSK parameters only; no plaintext fallback | PASS |
+| Explicit cipher | `TLS_PSK_WITH_AES_128_GCM_SHA256` | PASS |
+| Public identity independence | Random Bonjour service name, not token/hash/PSK | PASS |
+| Explicit peer-to-peer route | `includePeerToPeer = true` on listener, browser, and connection parameters | PASS |
+| One authenticated viewer | Listener rejects expired or additional clients | PASS |
+| H.264 encoder | Real-time `VTCompressionSession`, Baseline profile, no frame reordering, one-frame maximum compression delay | PASS |
+| Fixed output | Aspect-fit corrected image rendered to 960×540 BGRA canvas | PASS |
+| Bounded GOP | Forced initial keyframe; maximum two-second keyframe interval | PASS |
+| Decoder configuration | SPS/PPS included with every keyframe | PASS |
+| Access-unit framing | Flags + bounded SPS/PPS/sample lengths + AVCC sample bytes | PASS |
+| Payload validation | Unknown flags, malformed lengths, empty samples, and invalid configuration placement rejected | PASS |
+| Bounded media backlog | One active send plus one dependency-valid pending access unit | PASS |
+| Dependency recovery | Queue pressure retains valid pending media, requests a keyframe, and rejects deltas until recovery | PASS |
+| Decoder startup | Delta frame rejected until keyframe configuration exists | PASS |
+| Decoder reset | Session recreated when SPS/PPS changes | PASS |
+| Codec teardown | Compression/decompression sessions flushed or awaited, invalidated, and released | PASS |
+| Graceful session end | Reject new media, drop pending media, drain active media, send packet 2 as `.finalMessage` | PASS |
+| Camera lifecycle | Capture and encoder stop on disconnect, reset, navigation teardown, or Stop Sharing | PASS |
+| Delayed permission race | Camera run intent rechecked before capture starts | PASS |
+| Frame persistence | No Photos, Files, database, or media log path | PASS |
+| Sensitive logging | Fixed lifecycle labels and elapsed time only | PASS |
+| Source regressions | 35 tests | PASS |
 
-## TLS-PSK design
+## H.264 packet format
 
-The QR token starts as 32 cryptographically random bytes and is URL-safe encoded. Both devices derive:
+The existing outer TLS/TCP frame remains:
 
 ```text
-PSK      = SHA-256(UTF8(QR token))
-identity = UTF8(random Bonjour service name from the QR)
+packet type:  UInt8
+payload size: UInt32 big-endian
+payload:      exact declared bytes
 ```
 
-TLS 1.2 transmits the PSK identity before the encrypted channel exists. The identity is therefore deliberately public and cryptographically independent from the PSK; it cannot be transformed back into the token or key. The service name is already visible through Bonjour and is used only to select the corresponding PSK. The PSK itself is never advertised and exists only in memory.
+Application packet types are:
 
-TLS is constrained to version 1.2 because Apple documents that Network.framework TLS-PSK is available only through the older Network.framework API and does not support TLS 1.3. This is an intentional compatibility choice for iOS 17+, not a plaintext downgrade.
+```text
+2 = authenticated graceful end-session command
+3 = H.264 access unit
+```
 
-## Physical status and remaining tests
+The packet-3 payload is:
 
-The user has physically confirmed same-infrastructure Wi-Fi connectivity, iPhone peer-to-peer connectivity while Wi-Fi is enabled but unjoined, and graceful **Stop Sharing** teardown on both devices in the preceding candidates.
+```text
+flags:         UInt8 (bit 0 = keyframe)
+SPS length:    UInt16 big-endian
+PPS length:    UInt16 big-endian
+sample length: UInt32 big-endian
+SPS bytes
+PPS bytes
+AVCC sample bytes
+```
 
-1. Compile RC10 with the user’s installed Xcode/iOS SDK.
-2. Install the same 1.0.1 build 11 RC10 on both devices.
-3. Confirm the approved receding-monitor logo appears above the title and as the Home Screen icon on both iPhone and iPad.
-4. Delete the prior app first, launch RC10 from Xcode once, filter the console for `MM_DIAG`, and retain every matching line.
-5. Confirm a subsequent Home Screen launch remains immediate; fresh Xcode install/debug launch timing is tracked separately from normal app launch.
-6. On the first RC10 run, tap **View Monitor** once and confirm there is only one `viewer.qr.begin`, `viewer.listener.installed` follows promptly, and `viewer.qr.ready` appears without a gesture timeout.
-7. Confirm the nonexistent-symbol warning for `iphone.gen3.camera` no longer appears.
-8. Reconfirm same-infrastructure and iPhone-unjoined peer-to-peer pairing, streaming, and **Stop Sharing** behavior.
-9. Test both devices with Wi-Fi enabled and neither joined.
-10. Attempt connection from a third device without the QR token.
-11. Attempt expired and version-1 QR codes.
-12. Capture traffic and confirm no JPEG signatures or readable monitor content appear outside TLS records.
-13. Test disconnect/retry and foreground/background transitions.
-14. Stream for at least ten minutes and monitor latency, heat, and memory.
+Keyframes require non-empty SPS and PPS. Delta frames prohibit parameter sets. The complete payload is bounded to four MiB. VideoToolbox frame reordering is disabled, so access units can be decoded in reliable-stream order without B-frame reordering state.
+
+## Backpressure and Stop Sharing
+
+The sender keeps no unbounded encoded queue. If no send is active, an access unit enters Network.framework immediately. While a send is active, one dependency-valid access unit may wait. If another delta arrives while that slot is occupied, the sender retains the older valid unit, asks the encoder for a new keyframe, and rejects subsequent deltas until that independent recovery point arrives. The keyframe may replace a pending delta because it carries fresh SPS/PPS and has no dependency on the skipped chain.
+
+**Stop Sharing** sets the ending state, rejects new encoded access units, clears the pending access unit, waits for any active send's `.contentProcessed` completion, and only then queues packet type 2 with `.finalMessage` and `isComplete: true`. The established one-second fallback begins after that final command enters the send pipeline.
+
+## Physical test matrix
+
+1. Compile RC1 with Xcode and the installed iOS SDK.
+2. Install build 12 on both physical devices; confirm version-2 JPEG codes are rejected explicitly.
+3. Confirm first keyframe displays after Share and no stale frame survives from a previous session.
+4. Test shared infrastructure Wi-Fi and Wi-Fi enabled but unjoined on both devices.
+5. Run Stop Sharing while an H.264 access unit is active; confirm both views return to role selection.
+6. Reconnect repeatedly and confirm each session starts from fresh SPS/PPS and a keyframe.
+7. Introduce route congestion and confirm memory/latency remain bounded and keyframes are not displaced.
+8. Test format/session reset behavior, background/foreground, device lock, process termination, permission denial, and third-device rejection.
+9. Stream for 10–30 minutes while measuring readability, latency, bandwidth, memory, battery, and thermal behavior.
+10. Capture traffic and confirm no QR material, parameter sets, access units, or monitor content is readable outside TLS records.
 
 ## Compliance boundary
 
-The transport, lack of intentional frame persistence, and absence of cloud services are useful technical safeguards. They do not independently establish HIPAA compliance; device controls, organizational policies, access management, incident response, risk analysis, and operational procedures remain required.
+Encryption, no intentional media persistence, and no cloud service are useful technical safeguards. They do not independently establish HIPAA compliance; device controls, risk analysis, organizational policies, incident response, and operational procedures remain required.
 
-The historical 1.0.0 Multipeer source review is preserved at `docs/security/SECURITY-TEST-REPORT-1.0.0.md`.
+The JPEG RC10 candidate remains unchanged and directly restorable from `jpeg-1.0.x`, `v1.0.1-rc10`, or its immutable ZIP.

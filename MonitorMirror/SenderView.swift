@@ -23,8 +23,12 @@ struct SenderView: View {
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             let activePeer = peer
-            camera.frameHandler = { [weak activePeer] jpeg in
-                Task { @MainActor in activePeer?.sendCorrectedFrame(jpeg) }
+            let activeCamera = camera
+            camera.frameHandler = { [weak activePeer] accessUnit in
+                Task { @MainActor in activePeer?.sendEncodedFrame(accessUnit) }
+            }
+            activePeer.keyFrameRequestHandler = { [weak activeCamera] in
+                activeCamera?.requestKeyFrame()
             }
         }
         .onChange(of: peer.isConnected) { _, connected in
@@ -43,6 +47,7 @@ struct SenderView: View {
             camera.setSharing(false)
             camera.stop()
             camera.frameHandler = nil
+            peer.keyFrameRequestHandler = nil
             peer.stop()
         }
     }

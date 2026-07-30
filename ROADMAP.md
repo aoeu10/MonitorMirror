@@ -1,63 +1,43 @@
 # Monitor Mirror Roadmap
 
-This document tracks planned work after the stable 1.0.0 release. Items are proposals until they are implemented, tested on physical devices, and assigned to a release.
+This document tracks work that still requires physical-device validation.
 
-## Planned for 1.1.0
+## 1.1.0 H.264 transport
 
-### Low-latency H.264 video transport
-
-**Status:** Planned
+**Status:** RC1 implemented; Xcode and physical testing pending
 **Priority:** High
 
-Replace the current approximately 10 FPS JPEG-frame transport with an Apple VideoToolbox H.264 pipeline while retaining perspective correction, QR pairing, explicit Network.framework peer-to-peer discovery, and mandatory TLS-PSK encryption.
+The H.264 branch replaces independent JPEG images with Apple VideoToolbox while retaining perspective correction, QR pairing, explicit Network.framework peer-to-peer routing, TLS-PSK authentication, bounded backpressure, and graceful **Stop Sharing**.
 
-#### Expected benefits
-
-- Smoother 24–30 FPS monitor viewing
-- Lower bandwidth, especially for mostly static monitor content
-- Reduced CPU usage through Apple hardware encoding and decoding
-- Improved battery and thermal behavior during longer sessions
-- More consistent performance on congested local Wi-Fi
-- Better visual stability than independently compressed JPEG frames
-
-#### Proposed Apple frameworks
+### Implemented in RC1
 
 - `VTCompressionSession` on the iPhone
 - `VTDecompressionSession` on the iPad
-- `AVSampleBufferDisplayLayer` or an equivalent low-latency display path
-- Existing `MCSession(encryptionPreference: .required)` transport
+- Fixed 960×540 aspect-fit output with black letterboxing
+- 15 FPS target and approximately 1.5 Mbps average bitrate
+- Real-time Baseline H.264 with frame reordering disabled and at most one delayed encoder frame
+- Keyframe at encoder start and at least every two seconds
+- SPS/PPS carried with every keyframe
+- AVCC access-unit boundaries inside the existing length-prefixed TLS stream
+- One active send and one dependency-valid pending access unit
+- Backpressure requests a fresh keyframe and rejects deltas until recovery instead of dropping arbitrary H.264 dependencies
+- Decoder state recreated from keyframe configuration and destroyed on teardown
+- QR protocol version 3 so JPEG/H.264 mixed builds fail explicitly
+- No third-party codec, server, account, cloud, recording, or persistence
 
-No third-party codec, server, account, or cloud dependency should be introduced.
+### Physical acceptance criteria
 
-#### Low-latency requirements
-
-- Enable real-time encoding
-- Disable frame reordering and B-frames
-- Use periodic keyframes, initially every one second
-- Add sequence numbers, packet chunking, and reassembly
-- Detect packet loss and request or force a new keyframe
-- Reset the decoder cleanly after reconnecting
-- Compress before sending through the encrypted Multipeer session
-
-#### Acceptance criteria
-
-- Sustains at least 24 FPS on the supported physical iPhone/iPad test pair
-- Median glass-to-glass latency does not regress relative to version 1.0.0
+- Xcode compilation succeeds with the installed iOS SDK
+- Shared infrastructure Wi-Fi and Wi-Fi-enabled-but-unjoined peer-to-peer both work
+- Decoder displays the first keyframe without a stale frame from a prior session
+- Reconnect starts with fresh decoder configuration and a keyframe
+- **Stop Sharing** while media is in flight drains the active access unit, sends the authenticated final command, and dismisses both views
+- Slow-route testing confirms memory remains bounded and latency does not grow indefinitely
 - Monitor text remains readable at the selected bitrate
-- Recovers from packet loss within one keyframe interval
-- Reconnects without restarting either app
-- Demonstrates lower sustained bandwidth than JPEG transport
-- Does not add frame recording, persistence, telemetry, or internet traffic
-- Existing QR authentication and required Apple transport encryption remain intact
-- JPEG transport remains available during development as a comparison and fallback until H.264 passes on-device tests
+- Ten-to-thirty-minute runs assess heat, battery, memory, and latency drift
+- Backgrounding, device lock, permission denial, process termination, and third-device rejection remain safe
+- Packet capture reveals no readable parameter sets, access units, or monitor content outside TLS records
 
-#### Suggested initial encoder profile
+### Tuning after measurement
 
-- Resolution: corrected output up to 960 pixels wide initially
-- Frame rate: 30 FPS target, 24 FPS acceptable fallback
-- Bitrate: begin testing around 2–5 Mbps
-- Real-time mode: enabled
-- Frame reordering: disabled
-- Keyframe interval: approximately one second
-
-Final bitrate and resolution should be selected from measured readability, latency, bandwidth, battery, and thermal results rather than fixed assumptions.
+Resolution, frame rate, bitrate, and keyframe interval should change only from physical readability, latency, bandwidth, battery, and thermal measurements. The immutable JPEG fallback remains branch `jpeg-1.0.x`, tag `v1.0.1-rc10`, and its RC10 candidate ZIP until H.264 is promoted.

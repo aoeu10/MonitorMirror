@@ -17,7 +17,7 @@ The project uses only Apple frameworks. It has no package-manager dependencies, 
 - Automatic monitor detection using Vision rectangle detection
 - Manual adjustment of all four monitor corners
 - Perspective correction using Core Image
-- Corrected JPEG frames sent directly to the iPad at approximately 10 FPS
+- Corrected H.264 video sent directly to the iPad at approximately 15 FPS
 - No frame persistence on either device
 
 ## Requirements
@@ -95,7 +95,7 @@ iPad Viewer
                          TLS 1.2 PSK over TCP
                          (explicit peer-to-peer opt-in)
                                    ▲
-                                   │ bounded corrected JPEG messages
+                                   │ bounded H.264 access units
                                    │
 iPhone Camera                     │
   ├─ Scans QR                     │
@@ -104,14 +104,15 @@ iPhone Camera                     │
   ├─ Captures rear camera
   ├─ Detects monitor with Vision
   ├─ Accepts manual corner edits
-  └─ Applies Core Image perspective correction
+  ├─ Applies Core Image perspective correction
+  └─ Uses VideoToolbox hardware H.264 encoding
 ```
 
 ## Security design
 
 - Pairing secrets contain 256 bits from `SecRandomCopyBytes`.
 - QR invitations expire after two minutes.
-- The scanner accepts only Monitor Mirror payload version 2; version 1 identifies the incompatible Multipeer transport.
+- The scanner accepts only Monitor Mirror payload version 3; versions 1 and 2 identify incompatible Multipeer and JPEG transports.
 - The QR token is transformed into a 32-byte SHA-256 TLS pre-shared key; TLS authenticates both endpoints before application data can flow.
 - Bonjour advertises only a random, short-lived service name; it does not publish the token or token hash.
 - The sender connects only to the exact service name encoded in the QR.
@@ -125,7 +126,9 @@ This design provides strong technical safeguards, but software architecture alon
 
 ## Current transport
 
-The current release transmits corrected JPEG frames at roughly 10 FPS. This keeps the media path small and inspectable. A low-latency Apple VideoToolbox H.264 transport is planned for version 1.1.0 to improve frame rate, bandwidth, battery use, and thermal behavior without changing pairing or security. See [`ROADMAP.md`](ROADMAP.md) for scope and acceptance criteria.
+Version 1.1.0 RC1 uses Apple VideoToolbox H.264 at 960×540, approximately 15 FPS, and a 1.5 Mbps target bitrate. Frame reordering is disabled. Keyframes carry SPS/PPS decoder configuration and occur at least every two seconds. The reliable TLS stream permits one active send and one pending access unit. If that slot is full, the sender retains the dependency-valid pending unit, requests a new keyframe, and rejects later delta frames until the keyframe arrives.
+
+The complete JPEG implementation remains available at branch `jpeg-1.0.x`, tag `v1.0.1-rc10`, and `releases/candidates/MonitorMirror-1.0.1-build-11-rc10-Xcode.zip`. See [`ROADMAP.md`](ROADMAP.md) for the physical H.264 acceptance matrix.
 
 Network.framework uses infrastructure Wi-Fi when available and explicitly opts into Apple peer-to-peer Wi-Fi for nearby operation. Bluetooth may assist nearby discovery, but it does not carry the video. No internet service or external server is required. For peer-to-peer operation without a shared Wi-Fi network, Wi-Fi and Bluetooth must remain enabled on both devices.
 
@@ -149,4 +152,4 @@ Network.framework uses infrastructure Wi-Fi when available and explicitly opts i
 
 ### Video becomes delayed
 
-The JPEG transport permits only one active send and keeps at most one pending image, replacing that pending image with the newest frame. This bounds application-level backlog on the reliable TLS/TCP stream. Reduce distance or Wi-Fi congestion if video becomes delayed. A future VideoToolbox transport will further reduce bandwidth.
+The H.264 transport permits only one active send and keeps at most one pending access unit. It never replaces an encoded delta frame with a newer dependent delta. Under pressure it requests a fresh keyframe and rejects deltas until that independent recovery point can be queued. This bounds application-level backlog without breaking the decoder reference chain. Reduce distance or Wi-Fi congestion if video becomes delayed.

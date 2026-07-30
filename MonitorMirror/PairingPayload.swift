@@ -3,9 +3,9 @@ import Foundation
 import Security
 
 struct PairingPayload: Codable, Equatable {
-    // Version 2 selects the Network.framework TLS-PSK transport. Version 1
-    // belonged to the incompatible Multipeer Connectivity transport.
-    static let currentVersion = 2
+    // Version 3 selects H.264 media over the Network.framework TLS-PSK
+    // transport. Versions 1 (Multipeer) and 2 (JPEG) are incompatible.
+    static let currentVersion = 3
 
     let version: Int
     let token: String
