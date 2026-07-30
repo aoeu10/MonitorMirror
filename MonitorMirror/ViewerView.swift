@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 struct ViewerView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var peer: PeerSession
 
     var body: some View {
@@ -35,6 +36,9 @@ struct ViewerView: View {
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             peer.startViewerSession()
+        }
+        .onChange(of: peer.sessionEndSequence) { _, _ in
+            dismiss()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false

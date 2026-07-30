@@ -1,8 +1,8 @@
-# Monitor Mirror 1.0.1 RC4 — Network Transport Security Review
+# Monitor Mirror 1.0.1 RC5 — Network Transport Security Review
 
 **Scope:** Source-level review on Linux
 
-**Version:** 1.0.1 (Build 5) RC4
+**Version:** 1.0.1 (Build 6) RC5
 **Runtime status:** Xcode compilation, installed-device adversarial tests, and packet capture remain pending.
 
 ## Executive summary
@@ -32,6 +32,7 @@ These source checks establish implementation intent and structural safeguards. T
 | Camera callback synchronization | Lock-protected callback read/write across main and capture queues | PASS |
 | Disconnect cleanup | Sender disables sharing and stops capture before retry | PASS |
 | Permission/disconnect race | Lock-protected run intent is rechecked after permission and immediately before camera start | PASS |
+| Graceful session end | Authenticated end-session packet uses final-message semantics, blocks new frames, clears state, and signals both views to dismiss | PASS |
 | Frame persistence | Received frames remain in memory; no file/database write path | PASS |
 | Discovery timeout | Thirty-second deadline starts when Bonjour browsing begins and resets for TLS authentication | PASS |
 | Local Network guidance | Network.framework `EPERM` is mapped to Settings guidance | PASS |

@@ -117,6 +117,7 @@ iPhone Camera                     │
 - The sender connects only to the exact service name encoded in the QR.
 - Listener, browser, and connection explicitly opt into Apple peer-to-peer Wi-Fi through Network.framework.
 - TLS uses the explicit `TLS_PSK_WITH_AES_128_GCM_SHA256` suite. Its public PSK identity is the random Bonjour service name, which is independent of the secret key. There is no plaintext transport fallback.
+- Tapping **Stop Sharing** sends an encrypted end-session command, clears the final image, tears down the connection, and returns both devices to the main role-selection screen.
 - Frames are held in memory and are not written to Photos, Files, logs, or a database.
 - There are no external SDKs, network APIs, telemetry systems, or crash-reporting services.
 

@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 struct SenderView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var peer: PeerSession
     @EnvironmentObject private var camera: CameraProcessor
 
@@ -33,6 +34,9 @@ struct SenderView: View {
                 camera.setSharing(false)
                 camera.stop()
             }
+        }
+        .onChange(of: peer.sessionEndSequence) { _, _ in
+            dismiss()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
@@ -162,7 +166,11 @@ struct SenderView: View {
                 .disabled(camera.corners == nil)
 
                 Button(camera.isSharing ? "Stop Sharing" : "Share", systemImage: camera.isSharing ? "stop.fill" : "video.fill") {
-                    camera.setSharing(!camera.isSharing)
+                    if camera.isSharing {
+                        endSharingSession()
+                    } else {
+                        camera.setSharing(true)
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(camera.isSharing ? .red : .blue)
@@ -175,6 +183,12 @@ struct SenderView: View {
                 .foregroundStyle(.green)
         }
         .padding()
+    }
+
+    private func endSharingSession() {
+        camera.setSharing(false)
+        camera.stop()
+        peer.endSession()
     }
 
     private func resetPairing() {

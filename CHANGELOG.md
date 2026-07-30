@@ -1,5 +1,17 @@
 # Release notes
 
+## 1.0.1 (Build 6) RC5 — Graceful Stop Sharing teardown
+
+- Sends an authenticated and encrypted end-session control packet when the iPhone user taps **Stop Sharing**
+- Sends the control packet as Network.framework's final message and prevents additional JPEG frames from being queued
+- Drains any active JPEG send before queuing the stop command; the fallback begins only after that command enters the send pipeline
+- Clears the iPad's last received frame and all pairing/session state
+- Returns both the iPhone and iPad to Monitor Mirror's main role-selection screen
+- Uses a one-second local fallback so the iPhone still exits cleanly if the peer disappears while stopping
+- Adds four focused graceful-teardown regressions; full source regression count is now 22
+
+Physical Xcode compilation and iPhone/iPad validation are required before promotion from release candidate to stable.
+
 ## 1.0.1 (Build 5) RC4 — Explicit Network.framework peer-to-peer transport
 
 - Replaces Multipeer Connectivity with Apple Network.framework following Apple TN3213 migration guidance

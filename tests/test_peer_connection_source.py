@@ -114,6 +114,55 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("payload.version == currentVersion", PAIRING)
         self.assertIn("payload.expiresAt > Date()", PAIRING)
 
+    def test_graceful_end_session_packet_is_sent_and_stops_new_frames(self):
+        self.assertIn("endSessionPacket: UInt8 = 2", PEER)
+        self.assertIn("func endSession()", PEER)
+        self.assertIn("endingSession", PEER)
+        end = PEER.split("func endSession()", 1)[1].split("func stop()", 1)[0]
+        self.assertIn("if sendInFlight", end)
+        self.assertIn("sendEndSessionPacket()", end)
+        self.assertNotIn("endSessionTimeoutTask = Task", end)
+        self.assertIn("pendingFrame = nil", end)
+        final_send = PEER.split("private func sendEndSessionPacket()", 1)[1].split("private func sendPendingFrameIfNeeded", 1)[0]
+        self.assertIn("makePacket(type: Self.endSessionPacket", final_send)
+        self.assertIn("contentContext: .finalMessage", final_send)
+        self.assertIn("isComplete: true", final_send)
+        self.assertIn("endSessionTimeoutTask = Task", final_send)
+        self.assertIn("if error != nil", final_send)
+        ended = PEER.split("private func handleConnectionEnded", 1)[1].split("private func beginConnectionTimeout", 1)[0]
+        self.assertIn("if endingSession", ended)
+        self.assertIn("finishSession()", ended)
+        send = PEER.split("func sendCorrectedFrame", 1)[1].split("func endSession", 1)[0]
+        self.assertIn("!endingSession", send)
+        frame_completion = PEER.split("private func sendPendingFrameIfNeeded", 1)[1].split("private func receiveHeader", 1)[0]
+        self.assertIn("if self.endingSession", frame_completion)
+        self.assertIn("self.sendEndSessionPacket()", frame_completion)
+
+    def test_header_eof_does_not_cancel_before_declared_payload_is_read(self):
+        header = PEER.split("private func receiveHeader", 1)[1].split("private func receivePayload", 1)[0]
+        self.assertIn("data, _, _, error", header)
+        self.assertNotIn("if isComplete", header)
+        self.assertIn("receivePayload(type: type, length: length", header)
+
+    def test_receiver_processes_graceful_end_and_clears_session(self):
+        receive = PEER.split("private func receivePayload", 1)[1].split("private func handleReceiveFailure", 1)[0]
+        self.assertIn("type == Self.endSessionPacket", receive)
+        self.assertIn("finishSession()", receive)
+        finish = PEER.split("private func finishSession()", 1)[1].split("private func", 1)[0]
+        self.assertIn("stop()", finish)
+        self.assertIn("sessionEndSequence", finish)
+
+    def test_both_views_dismiss_after_graceful_session_end(self):
+        self.assertIn("@Environment(\\.dismiss)", SENDER)
+        self.assertIn("@Environment(\\.dismiss)", VIEWER)
+        self.assertIn(".onChange(of: peer.sessionEndSequence)", SENDER)
+        self.assertIn(".onChange(of: peer.sessionEndSequence)", VIEWER)
+        stop_button = SENDER.split('Button(camera.isSharing ? "Stop Sharing"', 1)[1].split(".buttonStyle", 1)[0]
+        self.assertIn("endSharingSession()", stop_button)
+        end_helper = SENDER.split("private func endSharingSession()", 1)[1].split("private func", 1)[0]
+        self.assertIn("peer.endSession()", end_helper)
+        self.assertIn("camera.stop()", end_helper)
+
     def test_stop_cancels_all_network_objects_and_sensitive_state(self):
         stop = PEER.split("func stop()", 1)[1].split("private func", 1)[0]
         for required in (
@@ -124,6 +173,9 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
             "activeToken = nil",
             "receivedFrame = nil",
             "pendingFrame = nil",
+            "sendInFlight = false",
+            "endingSession = false",
+            "endSessionPacketSent = false",
         ):
             self.assertIn(required, stop)
 

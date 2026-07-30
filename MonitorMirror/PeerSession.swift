@@ -36,6 +36,7 @@ final class PeerSession: ObservableObject {
 
     private nonisolated static let bonjourType = "_monmirror._tcp"
     private nonisolated static let framePacket: UInt8 = 1
+    private nonisolated static let endSessionPacket: UInt8 = 2
     private nonisolated static let headerBytes = 5
     private nonisolated static let maximumFrameBytes = 4 * 1_024 * 1_024
     private nonisolated static let peerToPeerFailureMessage =
@@ -47,6 +48,7 @@ final class PeerSession: ObservableObject {
     @Published private(set) var state: ConnectionState = .idle
     @Published private(set) var pairingPayload: PairingPayload?
     @Published private(set) var receivedFrame: UIImage?
+    @Published private(set) var sessionEndSequence = 0
 
     private let networkQueue = DispatchQueue(label: "MonitorMirror.network", qos: .userInitiated)
     private var listener: NWListener?
@@ -55,8 +57,11 @@ final class PeerSession: ObservableObject {
     private var activeToken: String?
     private var expectedViewerName: String?
     private var connectionTimeoutTask: Task<Void, Never>?
+    private var endSessionTimeoutTask: Task<Void, Never>?
     private var pendingFrame: Data?
     private var sendInFlight = false
+    private var endingSession = false
+    private var endSessionPacketSent = false
 
     var isConnected: Bool {
         if case .connected = state { return true }
@@ -141,6 +146,7 @@ final class PeerSession: ObservableObject {
     func sendCorrectedFrame(_ jpegData: Data) {
         guard role == .sender,
               isConnected,
+              !endingSession,
               !jpegData.isEmpty,
               jpegData.count <= Self.maximumFrameBytes else {
             return
@@ -150,9 +156,24 @@ final class PeerSession: ObservableObject {
         sendPendingFrameIfNeeded()
     }
 
+    func endSession() {
+        guard !endingSession else { return }
+        guard isConnected, connection != nil else {
+            finishSession()
+            return
+        }
+
+        endingSession = true
+        pendingFrame = nil
+        if sendInFlight { return }
+        sendEndSessionPacket()
+    }
+
     func stop() {
         connectionTimeoutTask?.cancel()
         connectionTimeoutTask = nil
+        endSessionTimeoutTask?.cancel()
+        endSessionTimeoutTask = nil
 
         listener?.newConnectionHandler = nil
         listener?.stateUpdateHandler = nil
@@ -174,6 +195,8 @@ final class PeerSession: ObservableObject {
         receivedFrame = nil
         pendingFrame = nil
         sendInFlight = false
+        endingSession = false
+        endSessionPacketSent = false
         role = .idle
         state = .idle
     }
@@ -314,6 +337,11 @@ final class PeerSession: ObservableObject {
         pendingFrame = nil
         sendInFlight = false
 
+        if endingSession {
+            finishSession()
+            return
+        }
+
         if case .failed = state {
             return
         }
@@ -347,8 +375,43 @@ final class PeerSession: ObservableObject {
         }
     }
 
+    private func sendEndSessionPacket() {
+        guard endingSession,
+              !endSessionPacketSent,
+              !sendInFlight,
+              let activeConnection = connection,
+              isConnected else {
+            return
+        }
+
+        endSessionPacketSent = true
+        let packet = Self.makePacket(type: Self.endSessionPacket, payload: Data([0]))
+
+        endSessionTimeoutTask?.cancel()
+        endSessionTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard !Task.isCancelled, let self, self.endingSession else { return }
+            self.finishSession()
+        }
+
+        activeConnection.send(
+            content: packet,
+            contentContext: .finalMessage,
+            isComplete: true,
+            completion: .contentProcessed { [weak self] error in
+                Task { @MainActor [weak self] in
+                    guard let self, self.endingSession else { return }
+                    if error != nil {
+                        self.finishSession()
+                    }
+                }
+            }
+        )
+    }
+
     private func sendPendingFrameIfNeeded() {
         guard !sendInFlight,
+              !endingSession,
               let frame = pendingFrame,
               let connection,
               isConnected else {
@@ -369,8 +432,16 @@ final class PeerSession: ObservableObject {
 
                 self.sendInFlight = false
                 if let error {
-                    self.state = .failed("Video transmission failed: \(error.localizedDescription)")
-                    connection.cancel()
+                    if self.endingSession {
+                        self.finishSession()
+                    } else {
+                        self.state = .failed("Video transmission failed: \(error.localizedDescription)")
+                        connection.cancel()
+                    }
+                    return
+                }
+                if self.endingSession {
+                    self.sendEndSessionPacket()
                     return
                 }
                 self.sendPendingFrameIfNeeded()
@@ -382,7 +453,7 @@ final class PeerSession: ObservableObject {
         candidate.receive(
             minimumIncompleteLength: Self.headerBytes,
             maximumLength: Self.headerBytes
-        ) { [weak self, weak candidate] data, _, isComplete, error in
+        ) { [weak self, weak candidate] data, _, _, error in
             guard let self, let candidate else { return }
             Task { @MainActor [weak self, weak candidate] in
                 guard let self,
@@ -413,9 +484,6 @@ final class PeerSession: ObservableObject {
                 }
 
                 self.receivePayload(type: type, length: length, on: candidate)
-                if isComplete {
-                    candidate.cancel()
-                }
             }
         }
     }
@@ -442,9 +510,22 @@ final class PeerSession: ObservableObject {
                     return
                 }
 
-                if type == Self.framePacket, let image = UIImage(data: data) {
-                    self.receivedFrame = image
+                if type == Self.endSessionPacket {
+                    guard data == Data([0]) else {
+                        self.state = .failed("The other device sent an invalid session command.")
+                        candidate.cancel()
+                        return
+                    }
+                    self.finishSession()
+                    return
                 }
+
+                guard type == Self.framePacket, let image = UIImage(data: data) else {
+                    self.state = .failed("The other device sent an invalid frame.")
+                    candidate.cancel()
+                    return
+                }
+                self.receivedFrame = image
 
                 if isComplete {
                     candidate.cancel()
@@ -453,6 +534,12 @@ final class PeerSession: ObservableObject {
                 }
             }
         }
+    }
+
+    private func finishSession() {
+        guard role != .idle else { return }
+        stop()
+        sessionEndSequence &+= 1
     }
 
     private func handleReceiveFailure(_ error: NWError?, connection candidate: NWConnection) {
