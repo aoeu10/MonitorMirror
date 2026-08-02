@@ -60,7 +60,7 @@ enum CameraLens: String, CaseIterable, Identifiable, Hashable {
 
     fileprivate var deviceType: AVCaptureDevice.DeviceType {
         switch self {
-        case .ultraWide: return .builtInUltraWideAngleCamera
+        case .ultraWide: return .builtInUltraWideCamera
         case .wide: return .builtInWideAngleCamera
         case .telephoto: return .builtInTelephotoCamera
         }
