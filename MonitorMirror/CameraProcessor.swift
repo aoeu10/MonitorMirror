@@ -74,9 +74,29 @@ final class CameraProcessor: NSObject, ObservableObject {
     private var lastSentAt = CFAbsoluteTimeGetCurrent()
     private var configured = false
     private var h264Encoder: H264Encoder?
+    private var encoderDimensions: CGSize?
+    private var captureOrientation: CGImagePropertyOrientation = .right
+
+    override init() {
+        super.init()
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(deviceOrientationDidChange),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
+        updateCaptureOrientation(UIDevice.current.orientation)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
 
     func start() {
         setRunRequested(true)
+        updateCaptureOrientation(UIDevice.current.orientation)
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             configureAndStart()
@@ -138,8 +158,7 @@ final class CameraProcessor: NSObject, ObservableObject {
         captureQueue.async { [weak self] in
             guard let self else { return }
             if value, self.activeCorners != nil {
-                self.startEncoderIfNeeded()
-                self.sharing = self.h264Encoder != nil
+                self.sharing = true
             } else {
                 self.sharing = false
                 self.stopEncoder()
@@ -178,6 +197,30 @@ final class CameraProcessor: NSObject, ObservableObject {
         lifecycleLock.lock()
         runRequested = value
         lifecycleLock.unlock()
+    }
+
+    @objc private func deviceOrientationDidChange() {
+        updateCaptureOrientation(UIDevice.current.orientation)
+    }
+
+    private func updateCaptureOrientation(_ deviceOrientation: UIDeviceOrientation) {
+        let orientation: CGImagePropertyOrientation
+        switch deviceOrientation {
+        case .portrait:
+            orientation = .right
+        case .portraitUpsideDown:
+            orientation = .left
+        case .landscapeLeft:
+            orientation = .up
+        case .landscapeRight:
+            orientation = .down
+        default:
+            return
+        }
+
+        captureQueue.async { [weak self] in
+            self?.captureOrientation = orientation
+        }
     }
 
     private func configureAndStart() {
@@ -295,27 +338,35 @@ final class CameraProcessor: NSObject, ObservableObject {
         return UIImage(cgImage: cgImage)
     }
 
-    private func startEncoderIfNeeded() {
-        guard h264Encoder == nil else { return }
-        do {
-            h264Encoder = try H264Encoder(ciContext: ciContext) { [weak self] result in
-                guard let self else { return }
-                switch result {
-                case .success(let accessUnit):
-                    let handler = self.frameHandler
-                    handler?(accessUnit)
-                case .failure(let error):
-                    self.reportH264Error(error)
-                }
-            }
-        } catch {
-            reportH264Error(error)
+    private func ensureEncoder(for image: CIImage) throws {
+        let dimensions = H264Encoder.dimensions(for: image.extent)
+        if encoderDimensions != dimensions {
+            stopEncoder()
         }
+        guard h264Encoder == nil else { return }
+
+        let encoder = try H264Encoder(
+            width: Int(dimensions.width),
+            height: Int(dimensions.height),
+            ciContext: ciContext
+        ) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let accessUnit):
+                let handler = self.frameHandler
+                handler?(accessUnit)
+            case .failure(let error):
+                self.reportH264Error(error)
+            }
+        }
+        h264Encoder = encoder
+        encoderDimensions = dimensions
     }
 
     private func stopEncoder() {
         h264Encoder?.invalidate()
         h264Encoder = nil
+        encoderDimensions = nil
     }
 
     private func publishError(_ message: String) {
@@ -341,8 +392,9 @@ extension CameraProcessor: AVCaptureVideoDataOutputSampleBufferDelegate {
     ) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        // Rear-camera buffers arrive in the sensor's landscape orientation. The sender UI is portrait.
-        let image = CIImage(cvPixelBuffer: pixelBuffer).oriented(.right)
+        // Rear-camera buffers arrive in sensor orientation. Apply the current physical-device
+        // orientation before detection, calibration, correction, and encoding.
+        let image = CIImage(cvPixelBuffer: pixelBuffer).oriented(captureOrientation)
         frameNumber += 1
 
         if autoDetectionEnabled && !locked && frameNumber % 12 == 0 {
@@ -362,7 +414,17 @@ extension CameraProcessor: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         lastSentAt = CFAbsoluteTimeGetCurrent()
         do {
-            try self.h264Encoder?.encode(corrected)
+            try ensureEncoder(for: corrected)
+        } catch {
+            sharing = false
+            stopEncoder()
+            DispatchQueue.main.async { [weak self] in self?.isSharing = false }
+            reportH264Error(error)
+            return
+        }
+
+        do {
+            try h264Encoder?.encode(corrected)
         } catch {
             reportH264Error(error)
         }

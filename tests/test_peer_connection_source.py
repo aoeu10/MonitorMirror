@@ -39,8 +39,9 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
     def test_h264_encoder_uses_realtime_videotoolbox_with_recovery_keyframes(self):
         self.assertIn("import VideoToolbox", H264_ENCODER)
         self.assertIn("VTCompressionSessionCreate", H264_ENCODER)
-        self.assertIn("width: CGFloat(H264Encoder.width)", H264_ENCODER)
-        self.assertIn("height: CGFloat(H264Encoder.height)", H264_ENCODER)
+        self.assertIn("static let maximumDimension = 960", H264_ENCODER)
+        self.assertIn("width: Int32(width)", H264_ENCODER)
+        self.assertIn("height: Int32(height)", H264_ENCODER)
         self.assertIn("kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary", H264_ENCODER)
         self.assertIn("kVTCompressionPropertyKey_RealTime", H264_ENCODER)
         self.assertIn("kVTCompressionPropertyKey_ProfileLevel", H264_ENCODER)
@@ -83,15 +84,48 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("private var h264Encoder: H264Encoder?", CAMERA)
         self.assertIn("private var storedFrameHandler: ((H264AccessUnit) -> Void)?", CAMERA)
         self.assertIn("var frameHandler: ((H264AccessUnit) -> Void)?", CAMERA)
-        self.assertIn("private func startEncoderIfNeeded()", CAMERA)
-        self.assertIn("H264Encoder(ciContext: ciContext)", CAMERA)
-        self.assertIn("try self.h264Encoder?.encode(corrected)", CAMERA)
+        self.assertIn("private func ensureEncoder(for image: CIImage) throws", CAMERA)
+        self.assertIn("let encoder = try H264Encoder(", CAMERA)
+        self.assertIn("try h264Encoder?.encode(corrected)", CAMERA)
         self.assertIn("private func stopEncoder()", CAMERA)
         self.assertIn("h264Encoder?.invalidate()", CAMERA)
         self.assertNotIn("makeJPEG", CAMERA)
         self.assertNotIn("jpegData", CAMERA)
         self.assertIn("activePeer?.sendEncodedFrame(accessUnit)", SENDER)
         self.assertNotIn("sendCorrectedFrame", SENDER)
+
+    def test_sender_orientation_and_encoder_canvas_follow_the_corrected_frame(self):
+        phone_orientations = INFO.split(
+            "<key>UISupportedInterfaceOrientations</key>", 1
+        )[1].split("<key>UISupportedInterfaceOrientations~ipad</key>", 1)[0]
+        self.assertIn("UIInterfaceOrientationLandscapeLeft", phone_orientations)
+        self.assertIn("UIInterfaceOrientationLandscapeRight", phone_orientations)
+
+        self.assertIn("UIDevice.orientationDidChangeNotification", CAMERA)
+        self.assertIn("private var captureOrientation: CGImagePropertyOrientation = .right", CAMERA)
+        self.assertIn("private func updateCaptureOrientation", CAMERA)
+        orientation_update = CAMERA.split("private func updateCaptureOrientation", 1)[1].split(
+            "private func configureAndStart", 1
+        )[0]
+        self.assertIn("case .portrait:\n            orientation = .right", orientation_update)
+        self.assertIn("case .portraitUpsideDown:\n            orientation = .left", orientation_update)
+        self.assertIn("case .landscapeLeft:\n            orientation = .up", orientation_update)
+        self.assertIn("case .landscapeRight:\n            orientation = .down", orientation_update)
+        self.assertIn(".oriented(captureOrientation)", CAMERA)
+        self.assertNotIn("CIImage(cvPixelBuffer: pixelBuffer).oriented(.right)", CAMERA)
+
+        self.assertIn("static func dimensions(for extent: CGRect)", H264_ENCODER)
+        self.assertIn("width: Int,\n        height: Int,", H264_ENCODER)
+        self.assertNotIn("static let width = 960", H264_ENCODER)
+        self.assertNotIn("static let height = 540", H264_ENCODER)
+        self.assertIn("private var encoderDimensions: CGSize?", CAMERA)
+        self.assertIn("private func ensureEncoder(for image: CIImage) throws", CAMERA)
+        self.assertIn("if encoderDimensions != dimensions", CAMERA)
+        self.assertIn("try ensureEncoder(for: corrected)", CAMERA)
+
+        self.assertIn("if decompressionSession == nil || sps != currentSPS || pps != currentPPS", H264_DECODER)
+        self.assertIn(".scaledToFit()", VIEWER)
+        self.assertIn(".frame(maxWidth: .infinity, maxHeight: .infinity)", VIEWER)
 
     def test_manual_corner_adjustment_pauses_auto_detection_until_auto_detect_is_tapped(self):
         self.assertIn("private var autoDetectionEnabled = true", CAMERA)

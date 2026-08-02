@@ -5,30 +5,70 @@ import Foundation
 import VideoToolbox
 
 final class H264Encoder {
-    static let width = 960
-    static let height = 540
+    static let maximumDimension = 960
     static let framesPerSecond: Int32 = 15
 
     typealias OutputHandler = (Result<H264AccessUnit, Error>) -> Void
 
     private let ciContext: CIContext
     private let outputHandler: OutputHandler
-    private let targetRect = CGRect(
-        x: 0,
-        y: 0,
-        width: CGFloat(H264Encoder.width),
-        height: CGFloat(H264Encoder.height)
-    )
+    private let width: Int
+    private let height: Int
+    private let targetRect: CGRect
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private let keyFrameLock = NSLock()
     private var compressionSession: VTCompressionSession?
     private var frameIndex: Int64 = 0
     private var needsKeyFrame = true
 
-    init(ciContext: CIContext, outputHandler: @escaping OutputHandler) throws {
+    init(
+        width: Int,
+        height: Int,
+        ciContext: CIContext,
+        outputHandler: @escaping OutputHandler
+    ) throws {
+        guard width > 0, height > 0, width.isMultiple(of: 2), height.isMultiple(of: 2) else {
+            throw H264CodecError.invalidDimensions
+        }
+        self.width = width
+        self.height = height
+        self.targetRect = CGRect(
+            x: 0,
+            y: 0,
+            width: CGFloat(width),
+            height: CGFloat(height)
+        )
         self.ciContext = ciContext
         self.outputHandler = outputHandler
         try createSession()
+    }
+
+    static func dimensions(for extent: CGRect) -> CGSize {
+        guard extent.width > 0, extent.height > 0 else {
+            return CGSize(width: maximumDimension, height: maximumDimension)
+        }
+
+        let aspectRatio = extent.width / extent.height
+        let rawWidth: CGFloat
+        let rawHeight: CGFloat
+        if aspectRatio >= 1 {
+            rawWidth = CGFloat(maximumDimension)
+            rawHeight = rawWidth / aspectRatio
+        } else {
+            rawHeight = CGFloat(maximumDimension)
+            rawWidth = rawHeight * aspectRatio
+        }
+
+        return CGSize(
+            width: evenDimension(rawWidth),
+            height: evenDimension(rawHeight)
+        )
+    }
+
+    private static func evenDimension(_ value: CGFloat) -> CGFloat {
+        let rounded = min(maximumDimension, max(2, Int(value.rounded())))
+        let even = rounded.isMultiple(of: 2) ? rounded : rounded - 1
+        return CGFloat(even)
     }
 
     deinit {
@@ -128,15 +168,15 @@ final class H264Encoder {
     private func createSession() throws {
         let attributes: [CFString: Any] = [
             kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey: Self.width,
-            kCVPixelBufferHeightKey: Self.height,
+            kCVPixelBufferWidthKey: width,
+            kCVPixelBufferHeightKey: height,
             kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary
         ]
         var createdSession: VTCompressionSession?
         let status = VTCompressionSessionCreate(
             allocator: kCFAllocatorDefault,
-            width: Int32(Self.width),
-            height: Int32(Self.height),
+            width: Int32(width),
+            height: Int32(height),
             codecType: kCMVideoCodecType_H264,
             encoderSpecification: nil,
             imageBufferAttributes: attributes as CFDictionary,
@@ -366,6 +406,7 @@ enum H264EncoderSetting {
 }
 
 enum H264CodecError: LocalizedError {
+    case invalidDimensions
     case encoderUnavailable
     case encoderCreationFailed(OSStatus)
     case encoderConfigurationFailed(H264EncoderSetting, OSStatus)
@@ -380,6 +421,7 @@ enum H264CodecError: LocalizedError {
 
     var diagnosticEvent: String {
         switch self {
+        case .invalidDimensions: return "h264.encoder.dimensions.invalid"
         case .encoderUnavailable: return "h264.encoder.unavailable"
         case .encoderCreationFailed: return "h264.encoder.creation.failed"
         case .encoderConfigurationFailed(let setting, _): return setting.diagnosticEvent
@@ -396,6 +438,8 @@ enum H264CodecError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .invalidDimensions:
+            return "H.264 encoder received invalid frame dimensions."
         case .encoderUnavailable:
             return "H.264 encoder became unavailable."
         case .encoderCreationFailed:
