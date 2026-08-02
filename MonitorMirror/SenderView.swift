@@ -53,98 +53,169 @@ struct SenderView: View {
     }
 
     private var pairingView: some View {
+        GeometryReader { geometry in
+            if geometry.size.width > geometry.size.height {
+                landscapePairingView(in: geometry.size)
+            } else {
+                portraitPairingView
+            }
+        }
+        .padding()
+    }
+
+    private var portraitPairingView: some View {
         VStack(spacing: 16) {
+            pairingInstructions
+            pairingScanner
+            pairingStatus
+        }
+    }
+
+    private func landscapePairingView(in size: CGSize) -> some View {
+        HStack(spacing: 16) {
+            pairingScanner
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(spacing: 12) {
+                pairingInstructions
+                Spacer(minLength: 0)
+                pairingStatus
+            }
+            .frame(width: min(360, max(280, size.width * 0.36)))
+        }
+    }
+
+    private var pairingInstructions: some View {
+        VStack(spacing: 12) {
             Text("Scan the iPad")
                 .font(.title2.bold())
 
             Text("On the iPad, choose **View Monitor**, then point this camera at its pairing code.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal)
 
             Text("Wi-Fi and Bluetooth must be turned on on both devices. They do not need to be connected to a Wi-Fi network.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal)
+        }
+    }
 
-            if !pairingAccepted {
-                QRScannerView(
-                    onCode: handlePairingCode,
-                    onError: { scanError = $0 }
-                )
-                .id(scannerID)
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(.blue, lineWidth: 3)
-                        .padding(42)
-                }
-                .frame(maxWidth: 520, maxHeight: 520)
-            } else {
-                Spacer()
-                ProgressView(peer.state.message)
-                Spacer()
+    @ViewBuilder
+    private var pairingScanner: some View {
+        if !pairingAccepted {
+            QRScannerView(
+                onCode: handlePairingCode,
+                onError: { scanError = $0 }
+            )
+            .id(scannerID)
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(.blue, lineWidth: 3)
+                    .padding(42)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ProgressView(peer.state.message)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
 
-            if case .failed(let message) = peer.state {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
+    @ViewBuilder
+    private var pairingStatus: some View {
+        if case .failed(let message) = peer.state {
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.red)
+                .multilineTextAlignment(.center)
 
-                Button("Try Pairing Again") {
-                    resetPairing()
-                }
-                .buttonStyle(.borderedProminent)
-            } else if let scanError {
-                Text(scanError)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
+            Button("Try Pairing Again") {
+                resetPairing()
+            }
+            .buttonStyle(.borderedProminent)
+        } else if let scanError {
+            Text(scanError)
+                .font(.footnote)
+                .foregroundStyle(.red)
+                .multilineTextAlignment(.center)
 
-                Button("Scan Again") {
-                    resetPairing()
-                }
-                .buttonStyle(.borderedProminent)
+            Button("Scan Again") {
+                resetPairing()
+            }
+            .buttonStyle(.borderedProminent)
+        } else {
+            Label(peer.state.message, systemImage: "lock.shield")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var calibrationView: some View {
+        GeometryReader { geometry in
+            if geometry.size.width > geometry.size.height {
+                landscapeCalibrationView(in: geometry.size)
             } else {
-                Label(peer.state.message, systemImage: "lock.shield")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                portraitCalibrationView
             }
         }
         .padding()
     }
 
-    private var calibrationView: some View {
+    private var portraitCalibrationView: some View {
         VStack(spacing: 12) {
-            if let image = camera.previewImage {
-                CalibrationCanvas(
-                    image: image,
-                    corners: camera.corners,
-                    isLocked: camera.isLocked,
-                    onCornerChanged: camera.updateCorner
-                )
-                .background(.black)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(alignment: .top) {
-                    Text(camera.corners == nil ? "Detecting monitor…" : (camera.isLocked ? "Calibration locked" : "Drag corners to adjust"))
-                        .font(.caption.bold())
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .padding(10)
-                }
-            } else {
-                ZStack {
-                    Color.black
-                    ProgressView("Starting rear camera…")
-                        .tint(.white)
-                        .foregroundStyle(.white)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
+            calibrationPreview
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            calibrationControls
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 
+    private func landscapeCalibrationView(in size: CGSize) -> some View {
+        HStack(spacing: 12) {
+            calibrationPreview
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            ScrollView {
+                calibrationControls
+                    .frame(maxWidth: .infinity)
+            }
+            .frame(width: min(340, max(280, size.width * 0.31)))
+        }
+    }
+
+    @ViewBuilder
+    private var calibrationPreview: some View {
+        if let image = camera.previewImage {
+            CalibrationCanvas(
+                image: image,
+                corners: camera.corners,
+                isLocked: camera.isLocked,
+                onCornerChanged: camera.updateCorner
+            )
+            .background(.black)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(alignment: .top) {
+                Text(camera.corners == nil ? "Detecting monitor…" : (camera.isLocked ? "Calibration locked" : "Drag corners to adjust"))
+                    .font(.caption.bold())
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(10)
+            }
+        } else {
+            ZStack {
+                Color.black
+                ProgressView("Starting rear camera…")
+                    .tint(.white)
+                    .foregroundStyle(.white)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private var calibrationControls: some View {
+        VStack(spacing: 10) {
             if let error = camera.errorMessage {
                 Text(error)
                     .font(.footnote)
@@ -152,58 +223,75 @@ struct SenderView: View {
                     .multilineTextAlignment(.center)
             }
 
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    Button {
-                        camera.setSharing(false)
-                        camera.redetect()
-                    } label: {
-                        Label("Auto-Detect", systemImage: "viewfinder")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button {
-                        if camera.isLocked {
-                            camera.setSharing(false)
-                            camera.setCalibrationLocked(false)
-                        } else {
-                            camera.setCalibrationLocked(true)
+            if camera.availableLenses.count > 1 {
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("Camera Lens", selection: Binding(
+                        get: { camera.selectedLens },
+                        set: { camera.selectLens($0) }
+                    )) {
+                        ForEach(camera.availableLenses) { lens in
+                            Text(lens.shortTitle)
+                                .tag(lens)
+                                .accessibilityLabel(lens.title)
                         }
-                    } label: {
-                        Label(camera.isLocked ? "Unlock" : "Lock Corners", systemImage: camera.isLocked ? "lock.open" : "lock")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(camera.corners == nil)
-                }
+                    .pickerStyle(.segmented)
 
+                    Text("Changing lens stops sharing and resets calibration.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 10) {
                 Button {
-                    if camera.isSharing {
-                        endSharingSession()
-                    } else {
-                        camera.setSharing(true)
-                    }
+                    camera.setSharing(false)
+                    camera.redetect()
                 } label: {
-                    Label(camera.isSharing ? "Stop Sharing" : "Share", systemImage: camera.isSharing ? "stop.fill" : "video.fill")
+                    Label("Auto-Detect", systemImage: "viewfinder")
                         .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(camera.isSharing ? .red : .blue)
-                .disabled(!camera.isLocked || camera.corners == nil)
+                .buttonStyle(.bordered)
+
+                Button {
+                    if camera.isLocked {
+                        camera.setSharing(false)
+                        camera.setCalibrationLocked(false)
+                    } else {
+                        camera.setCalibrationLocked(true)
+                    }
+                } label: {
+                    Label(camera.isLocked ? "Unlock" : "Lock Corners", systemImage: camera.isLocked ? "lock.open" : "lock")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(camera.corners == nil)
             }
-            .controlSize(.large)
+
+            Button {
+                if camera.isSharing {
+                    endSharingSession()
+                } else {
+                    camera.setSharing(true)
+                }
+            } label: {
+                Label(camera.isSharing ? "Stop Sharing" : "Share", systemImage: camera.isSharing ? "stop.fill" : "video.fill")
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(camera.isSharing ? .red : .blue)
+            .disabled(!camera.isLocked || camera.corners == nil)
 
             Label(peer.state.message, systemImage: "lock.fill")
                 .font(.footnote)
                 .foregroundStyle(.green)
         }
-        .padding()
+        .controlSize(.large)
     }
 
     private func endSharingSession() {

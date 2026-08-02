@@ -10,31 +10,13 @@ struct ViewerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 18) {
+        Group {
             if peer.isConnected {
-                receivedVideo
+                connectedViewer
             } else {
-                pairingPanel
-            }
-
-            if case .failed(let message) = peer.state {
-                Label(message, systemImage: "wifi.exclamationmark")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-
-                Button("Create a New Pairing Code") {
-                    peer.startViewerSession()
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                Label(peer.state.message, systemImage: peer.isConnected ? "lock.fill" : "antenna.radiowaves.left.and.right")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(peer.isConnected ? .green : .secondary)
-                    .multilineTextAlignment(.center)
+                disconnectedViewer
             }
         }
-        .padding()
         .navigationTitle("iPad Viewer")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -49,6 +31,44 @@ struct ViewerView: View {
             UIApplication.shared.isIdleTimerDisabled = false
             peer.stop()
         }
+    }
+
+    private var connectedViewer: some View {
+        receivedVideo
+            .overlay(alignment: .bottom) {
+                Label(peer.state.message, systemImage: "lock.fill")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(10)
+            }
+            .padding(6)
+    }
+
+    private var disconnectedViewer: some View {
+        VStack(spacing: 18) {
+            pairingPanel
+
+            if case .failed(let message) = peer.state {
+                Label(message, systemImage: "wifi.exclamationmark")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+
+                Button("Create a New Pairing Code") {
+                    peer.startViewerSession()
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Label(peer.state.message, systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding()
     }
 
     private var pairingPanel: some View {

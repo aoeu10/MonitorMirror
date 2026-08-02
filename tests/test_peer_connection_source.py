@@ -127,6 +127,49 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn(".scaledToFit()", VIEWER)
         self.assertIn(".frame(maxWidth: .infinity, maxHeight: .infinity)", VIEWER)
 
+    def test_sender_uses_two_column_landscape_layouts_for_pairing_and_calibration(self):
+        self.assertIn("GeometryReader { geometry in", SENDER)
+        self.assertIn("geometry.size.width > geometry.size.height", SENDER)
+        self.assertIn("private func landscapePairingView", SENDER)
+        self.assertIn("private func landscapeCalibrationView", SENDER)
+        self.assertIn("HStack(spacing: 16)", SENDER)
+        self.assertIn("HStack(spacing: 12)", SENDER)
+        self.assertIn("ScrollView", SENDER)
+        self.assertNotIn(".frame(maxWidth: 520, maxHeight: 520)", SENDER)
+
+    def test_connected_viewer_overlays_status_instead_of_reserving_a_separate_row(self):
+        self.assertIn("private var connectedViewer", VIEWER)
+        self.assertIn(".overlay(alignment: .bottom)", VIEWER)
+        self.assertIn(".padding(6)", VIEWER)
+        self.assertNotIn("VStack(spacing: 18) {\n            if peer.isConnected", VIEWER)
+
+    def test_sender_offers_only_available_rear_lenses_and_resets_calibration_when_switching(self):
+        self.assertIn("enum CameraLens: String, CaseIterable, Identifiable, Hashable", CAMERA)
+        self.assertIn("@Published private(set) var availableLenses", CAMERA)
+        self.assertIn("@Published private(set) var selectedLens", CAMERA)
+        self.assertIn(".builtInUltraWideAngleCamera", CAMERA)
+        self.assertIn(".builtInWideAngleCamera", CAMERA)
+        self.assertIn(".builtInTelephotoCamera", CAMERA)
+        self.assertIn("AVCaptureDevice.DiscoverySession", CAMERA)
+        self.assertIn("func selectLens(_ lens: CameraLens)", CAMERA)
+        switch_lens = CAMERA.split("func selectLens(_ lens: CameraLens)", 1)[1].split(
+            "func requestKeyFrame", 1
+        )[0]
+        self.assertIn("self.sharing = false", switch_lens)
+        self.assertIn("self.stopEncoder()", switch_lens)
+        self.assertIn("self.locked = false", switch_lens)
+        self.assertIn("self.autoDetectionEnabled = true", switch_lens)
+        self.assertIn("self.activeCorners = nil", switch_lens)
+        self.assertIn("session.beginConfiguration()", CAMERA)
+        self.assertIn("session.removeInput", CAMERA)
+        self.assertIn("session.canAddInput", CAMERA)
+        self.assertIn("let restoredPreviousInput", switch_lens)
+        self.assertIn("self.session.removeOutput(self.output)", switch_lens)
+        self.assertIn("self.configured = false", switch_lens)
+        self.assertIn("case lensRollbackFailed", CAMERA)
+        self.assertIn('Picker("Camera Lens"', SENDER)
+        self.assertIn("camera.selectLens", SENDER)
+
     def test_manual_corner_adjustment_pauses_auto_detection_until_auto_detect_is_tapped(self):
         self.assertIn("private var autoDetectionEnabled = true", CAMERA)
 

@@ -35,6 +35,38 @@ struct CornerSet: Equatable {
     }
 }
 
+enum CameraLens: String, CaseIterable, Identifiable, Hashable {
+    case ultraWide
+    case wide
+    case telephoto
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .ultraWide: return "Ultra Wide"
+        case .wide: return "Wide"
+        case .telephoto: return "Telephoto"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .ultraWide: return "0.5×"
+        case .wide: return "1×"
+        case .telephoto: return "Tele"
+        }
+    }
+
+    fileprivate var deviceType: AVCaptureDevice.DeviceType {
+        switch self {
+        case .ultraWide: return .builtInUltraWideAngleCamera
+        case .wide: return .builtInWideAngleCamera
+        case .telephoto: return .builtInTelephotoCamera
+        }
+    }
+}
+
 final class CameraProcessor: NSObject, ObservableObject {
     @Published private(set) var previewImage: UIImage?
     @Published private(set) var corners: CornerSet?
@@ -42,6 +74,8 @@ final class CameraProcessor: NSObject, ObservableObject {
     @Published private(set) var isLocked = false
     @Published private(set) var isSharing = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var availableLenses: [CameraLens] = []
+    @Published private(set) var selectedLens: CameraLens = .wide
 
     private let frameHandlerLock = NSLock()
     private let lifecycleLock = NSLock()
@@ -76,6 +110,8 @@ final class CameraProcessor: NSObject, ObservableObject {
     private var h264Encoder: H264Encoder?
     private var encoderDimensions: CGSize?
     private var captureOrientation: CGImagePropertyOrientation = .right
+    private var cameraInput: AVCaptureDeviceInput?
+    private var activeLens: CameraLens = .wide
 
     override init() {
         super.init()
@@ -167,6 +203,81 @@ final class CameraProcessor: NSObject, ObservableObject {
         }
     }
 
+    func selectLens(_ lens: CameraLens) {
+        captureQueue.async { [weak self] in
+            guard let self, self.configured, lens != self.activeLens else { return }
+            do {
+                guard let device = self.availableRearDevices().first(where: {
+                    $0.deviceType == lens.deviceType
+                }) else {
+                    throw CameraError.lensUnavailable
+                }
+
+                let newInput = try AVCaptureDeviceInput(device: device)
+                let previousInput = self.cameraInput
+                self.session.beginConfiguration()
+                if let previousInput {
+                    self.session.removeInput(previousInput)
+                }
+                guard self.session.canAddInput(newInput) else {
+                    let restoredPreviousInput: Bool
+                    if let previousInput, self.session.canAddInput(previousInput) {
+                        self.session.addInput(previousInput)
+                        restoredPreviousInput = true
+                    } else {
+                        restoredPreviousInput = false
+                        if self.session.outputs.contains(where: { $0 === self.output }) {
+                            self.session.removeOutput(self.output)
+                        }
+                        self.cameraInput = nil
+                        self.configured = false
+                    }
+                    self.session.commitConfiguration()
+                    guard restoredPreviousInput else {
+                        self.setRunRequested(false)
+                        if self.session.isRunning { self.session.stopRunning() }
+                        self.sharing = false
+                        self.stopEncoder()
+                        self.locked = false
+                        self.autoDetectionEnabled = true
+                        self.activeCorners = nil
+                        DispatchQueue.main.async {
+                            self.isRunning = false
+                            self.isSharing = false
+                            self.isLocked = false
+                            self.corners = nil
+                            self.previewImage = nil
+                            self.availableLenses = []
+                        }
+                        throw CameraError.lensRollbackFailed
+                    }
+                    throw CameraError.inputUnavailable
+                }
+                self.session.addInput(newInput)
+                self.session.commitConfiguration()
+
+                self.cameraInput = newInput
+                self.activeLens = lens
+                self.sharing = false
+                self.stopEncoder()
+                self.locked = false
+                self.autoDetectionEnabled = true
+                self.activeCorners = nil
+                self.frameNumber = 0
+                DispatchQueue.main.async {
+                    self.selectedLens = lens
+                    self.isSharing = false
+                    self.isLocked = false
+                    self.corners = nil
+                    self.previewImage = nil
+                    self.errorMessage = nil
+                }
+            } catch {
+                self.publishError("Camera lens change failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
     func requestKeyFrame() {
         captureQueue.async { [weak self] in
             self?.h264Encoder?.requestKeyFrame()
@@ -241,7 +352,18 @@ final class CameraProcessor: NSObject, ObservableObject {
     }
 
     private func configureSession() throws {
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+        let devices = availableRearDevices()
+        let lenses = CameraLens.allCases.filter { lens in
+            devices.contains { $0.deviceType == lens.deviceType }
+        }
+        let initialLens: CameraLens?
+        if lenses.contains(.wide) {
+            initialLens = .wide
+        } else {
+            initialLens = lenses.first
+        }
+        guard let initialLens,
+              let camera = devices.first(where: { $0.deviceType == initialLens.deviceType }) else {
             throw CameraError.cameraUnavailable
         }
 
@@ -253,6 +375,8 @@ final class CameraProcessor: NSObject, ObservableObject {
             throw CameraError.inputUnavailable
         }
         session.addInput(input)
+        cameraInput = input
+        activeLens = initialLens
 
         output.alwaysDiscardsLateVideoFrames = true
         output.videoSettings = [
@@ -266,6 +390,19 @@ final class CameraProcessor: NSObject, ObservableObject {
         session.addOutput(output)
         session.commitConfiguration()
         configured = true
+        DispatchQueue.main.async {
+            self.availableLenses = lenses
+            self.selectedLens = initialLens
+        }
+    }
+
+    private func availableRearDevices() -> [AVCaptureDevice] {
+        let deviceTypes = CameraLens.allCases.map { $0.deviceType }
+        return AVCaptureDevice.DiscoverySession(
+            deviceTypes: deviceTypes,
+            mediaType: .video,
+            position: .back
+        ).devices
     }
 
     private func detectMonitor(in image: CIImage) {
@@ -433,12 +570,16 @@ extension CameraProcessor: AVCaptureVideoDataOutputSampleBufferDelegate {
 
 private enum CameraError: LocalizedError {
     case cameraUnavailable
+    case lensUnavailable
+    case lensRollbackFailed
     case inputUnavailable
     case outputUnavailable
 
     var errorDescription: String? {
         switch self {
         case .cameraUnavailable: return "The rear camera is unavailable."
+        case .lensUnavailable: return "The selected rear camera lens is unavailable."
+        case .lensRollbackFailed: return "The previous camera could not be restored. Reconnect to restart capture."
         case .inputUnavailable: return "The rear camera could not be added to the capture session."
         case .outputUnavailable: return "Video frame output is unavailable."
         }
