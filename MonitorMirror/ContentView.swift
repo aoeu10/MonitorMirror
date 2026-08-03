@@ -114,7 +114,7 @@ private struct AboutView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Changelog")
                             .font(.title3.bold())
-                        Text("1.1.0 — Added low-latency H.264 video streaming with bounded backpressure, keyframe recovery, and complete session teardown.")
+                        Text("1.1.0 — Added low-latency H.264 streaming, sender rotation, adaptive video sizing, larger responsive camera and viewer layouts, and selection among available rear camera lenses.")
                         Text("1.0.1 — Added secure one-scan QR pairing, encrypted nearby transport, perspective correction, and the current app identity.")
                     }
 

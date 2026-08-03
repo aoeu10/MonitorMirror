@@ -1,5 +1,13 @@
 # Release notes
 
+## Current main — Adaptive orientation, responsive layouts, and rear-camera lenses
+
+- Supports sender rotation before and during sharing, and derives H.264 output dimensions from the perspective-corrected monitor while preserving its natural aspect ratio
+- Enlarges the QR scanner and calibration preview in landscape with responsive two-column layouts, and gives the connected iPad viewer a larger aspect-fit viewport
+- Discovers only rear camera lenses physically available on the sender and offers Ultra Wide, Wide, and Telephoto selection where supported
+- Safely switches capture inputs on the camera queue, stops sharing, clears stale calibration, and re-enables Auto-Detect because lens changes invalidate prior corner coordinates
+- Uses Apple’s valid `.builtInUltraWideCamera` AVFoundation device type and retains the secure protocol-3 H.264 transport and manual-calibration protections
+
 ## 1.1.0 (Build 17) RC6 — In-app About information
 
 - Adds a small About button to the main role-selection page
