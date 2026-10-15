@@ -2,18 +2,18 @@
 
 This document tracks work that still requires physical-device validation.
 
-## 1.1.0 H.264 transport
+## 1.1.1 camera setup and H.264 transport
 
-**Status:** RC5 H.264 streaming is physically confirmed working; RC6 adds only the in-app About information and awaits Xcode/UI confirmation
+**Status:** RC5 H.264 streaming was physically confirmed working. Version 1.1.1 (build 18) fixes orientation and calibration usability; simulator codec regressions and rendered setup layouts pass. Physical-device rotation and nearby-network acceptance remain to be checked on this version.
 **Priority:** High
 
 The H.264 branch replaces independent JPEG images with Apple VideoToolbox while retaining perspective correction, QR pairing, explicit Network.framework peer-to-peer routing, TLS-PSK authentication, bounded backpressure, and graceful **Stop Sharing**.
 
-### Implemented in RC1–RC6
+### Implemented through 1.1.1 (build 18)
 
 - `VTCompressionSession` on the iPhone
 - `VTDecompressionSession` on the iPad
-- Fixed 960×540 aspect-fit output with black letterboxing
+- Adaptive output preserving the corrected monitor's aspect ratio, with a maximum dimension of 960 pixels
 - 15 FPS target and approximately 1.5 Mbps average bitrate
 - Real-time Baseline H.264 with frame reordering disabled and at most one delayed encoder frame
 - Keyframe at encoder start and at least every two seconds
@@ -24,6 +24,8 @@ The H.264 branch replaces independent JPEG images with Apple VideoToolbox while 
 - Decoder state recreated from keyframe configuration and destroyed on teardown
 - QR protocol version 3 so JPEG/H.264 mixed builds fail explicitly
 - No third-party codec, server, account, cloud, recording, or persistence
+- Explicit single-pass buffer orientation with calibrated corner identities preserved across interface rotation
+- First-candidate detection hold with explicit **Re-detect**, plus top/side controls and guidance outside the camera preview
 
 ### Physical acceptance criteria
 

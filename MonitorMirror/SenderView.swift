@@ -20,6 +20,7 @@ struct SenderView: View {
         }
         .navigationTitle("iPhone Camera")
         .navigationBarTitleDisplayMode(.inline)
+        .background(CameraOrientationReader(onChange: camera.updateInterfaceOrientation))
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             let activePeer = peer
@@ -164,10 +165,10 @@ struct SenderView: View {
 
     private var portraitCalibrationView: some View {
         VStack(spacing: 12) {
-            calibrationPreview
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             calibrationControls
                 .fixedSize(horizontal: false, vertical: true)
+            calibrationPreview
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -176,11 +177,14 @@ struct SenderView: View {
             calibrationPreview
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            ScrollView {
-                calibrationControls
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 10) {
+                calibrationActions(stacked: true)
+                ScrollView {
+                    calibrationDetails
+                        .frame(maxWidth: .infinity)
+                }
             }
-            .frame(width: min(340, max(280, size.width * 0.31)))
+            .frame(width: min(340, max(280, size.width * 0.31)), alignment: .top)
         }
     }
 
@@ -195,14 +199,6 @@ struct SenderView: View {
             )
             .background(.black)
             .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(alignment: .top) {
-                Text(camera.corners == nil ? "Detecting monitor…" : (camera.isLocked ? "Calibration locked" : "Drag corners to adjust"))
-                    .font(.caption.bold())
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(10)
-            }
         } else {
             ZStack {
                 Color.black
@@ -216,60 +212,17 @@ struct SenderView: View {
 
     private var calibrationControls: some View {
         VStack(spacing: 10) {
-            if let error = camera.errorMessage {
-                Text(error)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-            }
+            calibrationActions()
+            calibrationDetails
+        }
+    }
 
-            if camera.availableLenses.count > 1 {
-                VStack(alignment: .leading, spacing: 4) {
-                    Picker("Camera Lens", selection: Binding(
-                        get: { camera.selectedLens },
-                        set: { camera.selectLens($0) }
-                    )) {
-                        ForEach(camera.availableLenses) { lens in
-                            Text(lens.shortTitle)
-                                .tag(lens)
-                                .accessibilityLabel(lens.title)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Text("Changing lens stops sharing and resets calibration.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button {
-                    camera.setSharing(false)
-                    camera.redetect()
-                } label: {
-                    Label("Auto-Detect", systemImage: "viewfinder")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-
-                Button {
-                    if camera.isLocked {
-                        camera.setSharing(false)
-                        camera.setCalibrationLocked(false)
-                    } else {
-                        camera.setCalibrationLocked(true)
-                    }
-                } label: {
-                    Label(camera.isLocked ? "Unlock" : "Lock Corners", systemImage: camera.isLocked ? "lock.open" : "lock")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(camera.corners == nil)
+    private func calibrationActions(stacked: Bool = false) -> some View {
+        VStack(spacing: 10) {
+            if stacked {
+                VStack(spacing: 10) { cornerControls }
+            } else {
+                HStack(spacing: 10) { cornerControls }
             }
 
             Button {
@@ -286,7 +239,74 @@ struct SenderView: View {
             .buttonStyle(.borderedProminent)
             .tint(camera.isSharing ? .red : .blue)
             .disabled(!camera.isLocked || camera.corners == nil)
+        }
+        .controlSize(.large)
+    }
 
+    @ViewBuilder
+    private var cornerControls: some View {
+        Button {
+            camera.setSharing(false)
+            camera.redetect()
+        } label: {
+            Label("Re-detect", systemImage: "viewfinder")
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+
+        Button {
+            if camera.isLocked {
+                camera.setSharing(false)
+                camera.setCalibrationLocked(false)
+            } else {
+                camera.setCalibrationLocked(true)
+            }
+        } label: {
+            Label(camera.isLocked ? "Unlock" : "Lock Corners", systemImage: camera.isLocked ? "lock.open" : "lock")
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .disabled(camera.corners == nil)
+    }
+
+    private var calibrationDetails: some View {
+        VStack(spacing: 10) {
+            if camera.previewImage != nil {
+                Text(camera.corners == nil ? "Detecting monitor…" : (camera.isLocked ? "Calibration locked" : "Corners held — drag to adjust or Re-detect"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+
+            if camera.availableLenses.count > 1 {
+                Picker("Camera Lens", selection: Binding(
+                    get: { camera.selectedLens },
+                    set: { camera.selectLens($0) }
+                )) {
+                    ForEach(camera.availableLenses) { lens in
+                        Text(lens.shortTitle)
+                            .tag(lens)
+                            .accessibilityLabel(lens.title)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text("Changing lens stops sharing and resets calibration.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let error = camera.errorMessage {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+            }
             Label(peer.state.message, systemImage: "lock.fill")
                 .font(.footnote)
                 .foregroundStyle(.green)
@@ -400,5 +420,53 @@ private struct CalibrationCanvas: View {
             x: min(max((display.x - rect.minX) / rect.width, 0), 1),
             y: min(max(1 - (display.y - rect.minY) / rect.height, 0), 1)
         )
+    }
+}
+
+private struct CameraOrientationReader: UIViewControllerRepresentable {
+    let onChange: (UIInterfaceOrientation) -> Void
+
+    func makeUIViewController(context: Context) -> OrientationController {
+        let controller = OrientationController()
+        controller.onChange = onChange
+        return controller
+    }
+
+    func updateUIViewController(_ controller: OrientationController, context: Context) {
+        controller.onChange = onChange
+        controller.reportOrientation()
+    }
+
+    final class OrientationController: UIViewController {
+        var onChange: ((UIInterfaceOrientation) -> Void)?
+        private var lastOrientation: UIInterfaceOrientation?
+
+        override func loadView() {
+            view = UIView()
+            view.isUserInteractionEnabled = false
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            reportOrientation()
+        }
+
+        override func viewWillTransition(
+            to size: CGSize,
+            with coordinator: UIViewControllerTransitionCoordinator
+        ) {
+            super.viewWillTransition(to: size, with: coordinator)
+            coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+                self?.reportOrientation()
+            }
+        }
+
+        func reportOrientation() {
+            guard let orientation = view.window?.windowScene?.interfaceOrientation,
+                  orientation != .unknown,
+                  orientation != lastOrientation else { return }
+            lastOrientation = orientation
+            onChange?(orientation)
+        }
     }
 }

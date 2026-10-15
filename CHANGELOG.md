@@ -1,11 +1,17 @@
 # Release notes
 
-## Current main — Adaptive orientation, responsive layouts, and rear-camera lenses
+## 1.1.1 (Build 18) — Stable orientation and stand-friendly calibration
 
 - Supports sender rotation before and during sharing, and derives H.264 output dimensions from the perspective-corrected monitor while preserving its natural aspect ratio
+- Explicitly disables AVFoundation buffer rotation/mirroring before applying Core Image orientation, avoiding hardware-dependent double rotation
+- Uses the sender's active window-scene interface orientation and transforms calibrated corner coordinates across rotations without changing monitor corner identities
+- Pauses automatic rectangle detection after its first successful candidate; **Re-detect** starts a fresh search, and unlocking leaves manual edits intact
+- Moves portrait setup controls above the preview and stacks landscape actions at the top of the side panel, outside its scrolling details
+- Moves detection/calibration guidance out of the camera-preview overlay and into the top/side controls area so it cannot obscure the monitor or corner handles
+- Adds native behavioral regressions covering detection state transitions and upright synthetic frames through perspective correction and H.264 encode/decode
 - Enlarges the QR scanner and calibration preview in landscape with responsive two-column layouts, and gives the connected iPad viewer a larger aspect-fit viewport
 - Discovers only rear camera lenses physically available on the sender and offers Ultra Wide, Wide, and Telephoto selection where supported
-- Safely switches capture inputs on the camera queue, stops sharing, clears stale calibration, and re-enables Auto-Detect because lens changes invalidate prior corner coordinates
+- Safely switches capture inputs on the camera queue, stops sharing, clears stale calibration, and starts a fresh one-shot detection search because lens changes invalidate prior corner coordinates
 - Uses Apple’s valid `.builtInUltraWideCamera` AVFoundation device type and retains the secure protocol-3 H.264 transport and manual-calibration protections
 
 ## 1.1.0 (Build 17) RC6 — In-app About information

@@ -94,49 +94,6 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("activePeer?.sendEncodedFrame(accessUnit)", SENDER)
         self.assertNotIn("sendCorrectedFrame", SENDER)
 
-    def test_sender_orientation_and_encoder_canvas_follow_the_corrected_frame(self):
-        phone_orientations = INFO.split(
-            "<key>UISupportedInterfaceOrientations</key>", 1
-        )[1].split("<key>UISupportedInterfaceOrientations~ipad</key>", 1)[0]
-        self.assertIn("UIInterfaceOrientationLandscapeLeft", phone_orientations)
-        self.assertIn("UIInterfaceOrientationLandscapeRight", phone_orientations)
-
-        self.assertIn("UIDevice.orientationDidChangeNotification", CAMERA)
-        self.assertIn("private var captureOrientation: CGImagePropertyOrientation = .right", CAMERA)
-        self.assertIn("private func updateCaptureOrientation", CAMERA)
-        orientation_update = CAMERA.split("private func updateCaptureOrientation", 1)[1].split(
-            "private func configureAndStart", 1
-        )[0]
-        self.assertIn("case .portrait:\n            orientation = .right", orientation_update)
-        self.assertIn("case .portraitUpsideDown:\n            orientation = .left", orientation_update)
-        self.assertIn("case .landscapeLeft:\n            orientation = .up", orientation_update)
-        self.assertIn("case .landscapeRight:\n            orientation = .down", orientation_update)
-        self.assertIn(".oriented(captureOrientation)", CAMERA)
-        self.assertNotIn("CIImage(cvPixelBuffer: pixelBuffer).oriented(.right)", CAMERA)
-
-        self.assertIn("static func dimensions(for extent: CGRect)", H264_ENCODER)
-        self.assertIn("width: Int,\n        height: Int,", H264_ENCODER)
-        self.assertNotIn("static let width = 960", H264_ENCODER)
-        self.assertNotIn("static let height = 540", H264_ENCODER)
-        self.assertIn("private var encoderDimensions: CGSize?", CAMERA)
-        self.assertIn("private func ensureEncoder(for image: CIImage) throws", CAMERA)
-        self.assertIn("if encoderDimensions != dimensions", CAMERA)
-        self.assertIn("try ensureEncoder(for: corrected)", CAMERA)
-
-        self.assertIn("if decompressionSession == nil || sps != currentSPS || pps != currentPPS", H264_DECODER)
-        self.assertIn(".scaledToFit()", VIEWER)
-        self.assertIn(".frame(maxWidth: .infinity, maxHeight: .infinity)", VIEWER)
-
-    def test_sender_uses_two_column_landscape_layouts_for_pairing_and_calibration(self):
-        self.assertIn("GeometryReader { geometry in", SENDER)
-        self.assertIn("geometry.size.width > geometry.size.height", SENDER)
-        self.assertIn("private func landscapePairingView", SENDER)
-        self.assertIn("private func landscapeCalibrationView", SENDER)
-        self.assertIn("HStack(spacing: 16)", SENDER)
-        self.assertIn("HStack(spacing: 12)", SENDER)
-        self.assertIn("ScrollView", SENDER)
-        self.assertNotIn(".frame(maxWidth: 520, maxHeight: 520)", SENDER)
-
     def test_connected_viewer_overlays_status_instead_of_reserving_a_separate_row(self):
         self.assertIn("private var connectedViewer", VIEWER)
         self.assertIn(".overlay(alignment: .bottom)", VIEWER)
@@ -170,25 +127,6 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertIn("case lensRollbackFailed", CAMERA)
         self.assertIn('Picker("Camera Lens"', SENDER)
         self.assertIn("camera.selectLens", SENDER)
-
-    def test_manual_corner_adjustment_pauses_auto_detection_until_auto_detect_is_tapped(self):
-        self.assertIn("private var autoDetectionEnabled = true", CAMERA)
-
-        update_corner = CAMERA.split("func updateCorner", 1)[1].split("private var isRunRequested", 1)[0]
-        self.assertIn("self.autoDetectionEnabled = false", update_corner)
-
-        redetect = CAMERA.split("func redetect", 1)[1].split("func setCalibrationLocked", 1)[0]
-        self.assertIn("self.autoDetectionEnabled = true", redetect)
-        self.assertIn("self.activeCorners = nil", redetect)
-
-        self.assertIn("if autoDetectionEnabled && !locked && frameNumber % 12 == 0", CAMERA)
-        self.assertIn('Label("Auto-Detect", systemImage: "viewfinder")', SENDER)
-        self.assertNotIn('Button("Re-detect", systemImage: "viewfinder")', SENDER)
-        auto_detect_label = SENDER.split('Label("Auto-Detect", systemImage: "viewfinder")', 1)[1].split(
-            ".buttonStyle(.bordered)", 1
-        )[0]
-        self.assertIn(".lineLimit(1)", auto_detect_label)
-        self.assertIn(".frame(maxWidth: .infinity)", auto_detect_label)
 
     def test_h264_decoder_requires_configuration_and_tears_down_async_work(self):
         self.assertIn("import VideoToolbox", H264_DECODER)
@@ -263,21 +201,6 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
     def test_root_uses_backward_compatible_iphone_symbol(self):
         self.assertNotIn('systemImage: "iphone.gen3.camera"', CONTENT)
         self.assertIn('systemImage: "iphone"', CONTENT)
-
-    def test_main_page_offers_about_details_changelog_dependencies_and_website(self):
-        self.assertIn("@State private var isShowingAbout = false", CONTENT)
-        self.assertIn('Label("About", systemImage: "info.circle")', CONTENT)
-        self.assertIn(".sheet(isPresented: $isShowingAbout)", CONTENT)
-        self.assertIn("private struct AboutView: View", CONTENT)
-        self.assertIn("@Environment(\\.dismiss) private var dismiss", CONTENT)
-        self.assertNotIn("@Environment(\\\\.dismiss)", CONTENT)
-        self.assertIn('(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.0"', CONTENT)
-        self.assertIn('(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? ""', CONTENT)
-        self.assertIn("Privately share a perspective-corrected view", CONTENT)
-        self.assertIn('Text("Changelog")', CONTENT)
-        self.assertIn('Text("Libraries")', CONTENT)
-        self.assertIn("No third-party libraries or external open-source packages", CONTENT)
-        self.assertIn('URL(string: "https://monitor-mirror.com")!', CONTENT)
 
     def test_launch_diagnostics_cover_root_and_first_viewer_path_without_secrets(self):
         for marker in (

@@ -85,7 +85,7 @@ private struct AboutView: View {
     private let websiteURL = URL(string: "https://monitor-mirror.com")!
 
     private var versionText: String {
-        let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.0"
+        let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.1"
         let build = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? ""
         return build.isEmpty ? "Version \(version)" : "Version \(version) (\(build))"
     }
@@ -114,6 +114,7 @@ private struct AboutView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Changelog")
                             .font(.title3.bold())
+                        Text("1.1.1 — Fixed video orientation, paused corner detection after its first candidate, and moved setup controls and guidance away from the monitor preview for easier use in a stand.")
                         Text("1.1.0 — Added low-latency H.264 streaming, sender rotation, adaptive video sizing, larger responsive camera and viewer layouts, and selection among available rear camera lenses.")
                         Text("1.0.1 — Added secure one-scan QR pairing, encrypted nearby transport, perspective correction, and the current app identity.")
                     }

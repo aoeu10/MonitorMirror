@@ -33,6 +33,37 @@ struct CornerSet: Equatable {
             }
         }
     }
+
+    func reoriented(
+        from oldOrientation: CGImagePropertyOrientation,
+        to newOrientation: CGImagePropertyOrientation
+    ) -> CornerSet {
+        let inverse = Self.normalizedTransform(for: oldOrientation).inverted()
+        let forward = Self.normalizedTransform(for: newOrientation)
+        func converted(_ point: CGPoint) -> CGPoint {
+            point.applying(inverse).applying(forward)
+        }
+        // Preserve monitor corner identities, not their position on the phone screen.
+        return CornerSet(
+            topLeft: converted(topLeft),
+            topRight: converted(topRight),
+            bottomRight: converted(bottomRight),
+            bottomLeft: converted(bottomLeft)
+        )
+    }
+
+    private static func normalizedTransform(for orientation: CGImagePropertyOrientation) -> CGAffineTransform {
+        switch orientation {
+        case .right:
+            return CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: 0, ty: 1)
+        case .left:
+            return CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 1, ty: 0)
+        case .down:
+            return CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: 1, ty: 1)
+        default:
+            return .identity
+        }
+    }
 }
 
 enum CameraLens: String, CaseIterable, Identifiable, Hashable {
@@ -113,26 +144,9 @@ final class CameraProcessor: NSObject, ObservableObject {
     private var cameraInput: AVCaptureDeviceInput?
     private var activeLens: CameraLens = .wide
 
-    override init() {
-        super.init()
-        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(deviceOrientationDidChange),
-            name: UIDevice.orientationDidChangeNotification,
-            object: nil
-        )
-        updateCaptureOrientation(UIDevice.current.orientation)
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-        UIDevice.current.endGeneratingDeviceOrientationNotifications()
-    }
 
     func start() {
         setRunRequested(true)
-        updateCaptureOrientation(UIDevice.current.orientation)
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             configureAndStart()
@@ -223,6 +237,7 @@ final class CameraProcessor: NSObject, ObservableObject {
                     let restoredPreviousInput: Bool
                     if let previousInput, self.session.canAddInput(previousInput) {
                         self.session.addInput(previousInput)
+                        self.configureSensorOrientation()
                         restoredPreviousInput = true
                     } else {
                         restoredPreviousInput = false
@@ -254,6 +269,7 @@ final class CameraProcessor: NSObject, ObservableObject {
                     throw CameraError.inputUnavailable
                 }
                 self.session.addInput(newInput)
+                self.configureSensorOrientation()
                 self.session.commitConfiguration()
 
                 self.cameraInput = newInput
@@ -310,27 +326,33 @@ final class CameraProcessor: NSObject, ObservableObject {
         lifecycleLock.unlock()
     }
 
-    @objc private func deviceOrientationDidChange() {
-        updateCaptureOrientation(UIDevice.current.orientation)
-    }
-
-    private func updateCaptureOrientation(_ deviceOrientation: UIDeviceOrientation) {
+    func updateInterfaceOrientation(_ interfaceOrientation: UIInterfaceOrientation) {
         let orientation: CGImagePropertyOrientation
-        switch deviceOrientation {
+        switch interfaceOrientation {
         case .portrait:
             orientation = .right
         case .portraitUpsideDown:
             orientation = .left
         case .landscapeLeft:
-            orientation = .up
-        case .landscapeRight:
             orientation = .down
+        case .landscapeRight:
+            orientation = .up
         default:
             return
         }
 
         captureQueue.async { [weak self] in
-            self?.captureOrientation = orientation
+            guard let self, self.captureOrientation != orientation else { return }
+            if let corners = self.activeCorners {
+                self.activeCorners = corners.reoriented(from: self.captureOrientation, to: orientation)
+            }
+            self.captureOrientation = orientation
+            self.h264Encoder?.requestKeyFrame()
+            let corners = self.activeCorners
+            DispatchQueue.main.async {
+                self.corners = corners
+                self.previewImage = nil
+            }
         }
     }
 
@@ -388,6 +410,7 @@ final class CameraProcessor: NSObject, ObservableObject {
             throw CameraError.outputUnavailable
         }
         session.addOutput(output)
+        configureSensorOrientation()
         session.commitConfiguration()
         configured = true
         DispatchQueue.main.async {
@@ -395,6 +418,19 @@ final class CameraProcessor: NSObject, ObservableObject {
             self.selectedLens = initialLens
         }
     }
+    private func configureSensorOrientation() {
+        guard let connection = output.connection(with: .video) else { return }
+        // Core Image owns rotation. VideoDataOutput otherwise physically rotates buffers,
+        // with defaults that vary by hardware, causing a second rotation below.
+        if connection.isVideoRotationAngleSupported(0) {
+            connection.videoRotationAngle = 0
+        }
+        if connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = false
+        }
+    }
+
 
     private func availableRearDevices() -> [AVCaptureDevice] {
         let deviceTypes = CameraLens.allCases.map { $0.deviceType }
@@ -428,6 +464,7 @@ final class CameraProcessor: NSObject, ObservableObject {
                 bottomLeft: observation.bottomLeft
             )
             activeCorners = detected
+            autoDetectionEnabled = false
             DispatchQueue.main.async { [weak self] in self?.corners = detected }
         } catch {
             publishError("Monitor detection failed: \(error.localizedDescription)")
@@ -529,8 +566,8 @@ extension CameraProcessor: AVCaptureVideoDataOutputSampleBufferDelegate {
     ) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        // Rear-camera buffers arrive in sensor orientation. Apply the current physical-device
-        // orientation before detection, calibration, correction, and encoding.
+        // The connection supplies unrotated rear-camera buffers. Match the active UI
+        // orientation once for preview, detection, perspective correction, and encoding.
         let image = CIImage(cvPixelBuffer: pixelBuffer).oriented(captureOrientation)
         frameNumber += 1
 

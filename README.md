@@ -4,6 +4,11 @@ Monitor Mirror is a universal iPhone/iPad app that privately shares a perspectiv
 
 The project uses only Apple frameworks. It has no package-manager dependencies, accounts, cloud backend, analytics, recording, or persistent media storage.
 
+## Legal
+
+- [MIT License](LICENSE)
+- [Privacy Policy](PRIVACY.md)
+
 ## Features
 
 - One universal app target for iPhone and iPad
@@ -14,9 +19,11 @@ The project uses only Apple frameworks. It has no package-manager dependencies, 
 - TLS 1.2 PSK encryption and mutual authentication using the QR’s 256-bit secret
 - Exact QR-named Bonjour service matching without broadcasting the secret or its hash
 - Rear-camera capture on iPhone
-- Automatic monitor detection using Vision rectangle detection
+- One-shot monitor detection using Vision: holds the first candidate until **Re-detect** is tapped
 - Manual adjustment of all four monitor corners
 - Perspective correction using Core Image
+- Upright video with calibration preserved when the sender interface rotates
+- Stand-friendly setup controls above the preview in portrait and beside it in landscape
 - Corrected H.264 video sent directly to the iPad at approximately 15 FPS
 - No frame persistence on either device
 
@@ -76,12 +83,16 @@ If a permission was denied, restore it under **Settings → Apps → Monitor Mir
 3. Scan the QR code displayed by the iPad.
 4. Wait for **Securely connected**.
 5. Mount the iPhone near the monitor edge with the rear camera aimed at the monitor.
-6. Wait for the yellow quadrilateral to detect the monitor.
-7. Drag any incorrect corner marker into place.
+6. Wait for the yellow quadrilateral to detect one possible monitor. Detection then pauses.
+7. Drag any incorrect corner marker into place, or tap **Re-detect** to search for a new candidate.
 8. Tap **Lock Corners**.
 9. Tap **Share**.
 
 The iPad displays only the perspective-corrected monitor rectangle.
+
+Setup controls stay above the preview in portrait and at the side in landscape. Unlocking corners allows manual adjustment; it does not restart automatic detection. Changing the camera lens clears calibration and starts a new one-shot search.
+
+The sender applies its active interface orientation once, then encodes upright pixels rather than relying on video rotation metadata. Rotating the phone after calibration transforms the corner coordinates while preserving the monitor's corner identities and the viewer's video orientation.
 
 ## Architecture
 
@@ -126,7 +137,7 @@ This design provides strong technical safeguards, but software architecture alon
 
 ## Current transport
 
-Version 1.1.0 RC6 uses Apple VideoToolbox H.264 at 960×540, approximately 15 FPS, and a 1.5 Mbps target bitrate. Frame reordering is disabled. Keyframes carry SPS/PPS decoder configuration and occur at least every two seconds. The reliable TLS stream permits one active send and one pending access unit. If that slot is full, the sender retains the dependency-valid pending unit, requests a new keyframe, and rejects later delta frames until the keyframe arrives.
+Version 1.1.1 (build 18) uses Apple VideoToolbox H.264 with the perspective-corrected monitor's aspect ratio and a maximum dimension of 960 pixels, approximately 15 FPS, and a 1.5 Mbps target bitrate. Frame reordering is disabled. Keyframes carry SPS/PPS decoder configuration and occur at least every two seconds. The reliable TLS stream permits one active send and one pending access unit. If that slot is full, the sender retains the dependency-valid pending unit, requests a new keyframe, and rejects later delta frames until the keyframe arrives.
 
 The complete JPEG implementation remains available at branch `jpeg-1.0.x`, tag `v1.0.1-rc10`, and `releases/candidates/MonitorMirror-1.0.1-build-11-rc10-Xcode.zip`. See [`ROADMAP.md`](ROADMAP.md) for the physical H.264 acceptance matrix.
 
@@ -153,3 +164,14 @@ Network.framework uses infrastructure Wi-Fi when available and explicitly opts i
 ### Video becomes delayed
 
 The H.264 transport permits only one active send and keeps at most one pending access unit. It never replaces an encoded delta frame with a newer dependent delta. Under pressure it requests a fresh keyframe and rejects deltas until that independent recovery point can be queued. This bounds application-level backlog without breaking the decoder reference chain. Reduce distance or Wi-Fi congestion if video becomes delayed.
+
+## Camera setup regressions
+
+The shared Xcode scheme includes `MonitorMirrorTests`. Run it on an iOS simulator:
+
+```sh
+xcodebuild test -project MonitorMirror.xcodeproj -scheme MonitorMirror \
+  -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.5'
+```
+
+Use a simulator name and OS available on your Mac. The tests exercise first-candidate hold, explicit re-detection, manual-edit preservation, every quarter-turn corner transform, and synthetic frames through the production perspective-correction/H.264 encoder and decoder. They do not substitute for checking the actual rear camera and nearby connection on an iPhone/iPad pair.
