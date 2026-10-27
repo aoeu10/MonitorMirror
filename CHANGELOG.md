@@ -1,5 +1,11 @@
 # Release notes
 
+## 1.1.2 (Build 19) — Stand-use guidance for accidental hardware-button exits
+
+- Adds a Guided Access reminder to both the pairing screen (before scanning) and the setup screen, refreshed on activation so it clears after a trip to Settings
+- Adds an **About → Stand Use** section with Guided Access setup, Camera Control, and Action Button steps, plus reconnect expectations
+- Documents that ordinary installs require the user to start Guided Access; only MDM-supervised devices can request Single App Mode programmatically
+
 ## 1.1.1 (Build 18) — Stable orientation and stand-friendly calibration
 
 - Supports sender rotation before and during sharing, and derives H.264 output dimensions from the perspective-corrected monitor while preserving its natural aspect ratio

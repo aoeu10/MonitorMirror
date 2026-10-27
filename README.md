@@ -137,7 +137,7 @@ This design provides strong technical safeguards, but software architecture alon
 
 ## Current transport
 
-Version 1.1.1 (build 18) uses Apple VideoToolbox H.264 with the perspective-corrected monitor's aspect ratio and a maximum dimension of 960 pixels, approximately 15 FPS, and a 1.5 Mbps target bitrate. Frame reordering is disabled. Keyframes carry SPS/PPS decoder configuration and occur at least every two seconds. The reliable TLS stream permits one active send and one pending access unit. If that slot is full, the sender retains the dependency-valid pending unit, requests a new keyframe, and rejects later delta frames until the keyframe arrives.
+Version 1.1.2 (build 19) uses Apple VideoToolbox H.264 with the perspective-corrected monitor's aspect ratio and a maximum dimension of 960 pixels, approximately 15 FPS, and a 1.5 Mbps target bitrate. Frame reordering is disabled. Keyframes carry SPS/PPS decoder configuration and occur at least every two seconds. The reliable TLS stream permits one active send and one pending access unit. If that slot is full, the sender retains the dependency-valid pending unit, requests a new keyframe, and rejects later delta frames until the keyframe arrives.
 
 The complete JPEG implementation remains available at branch `jpeg-1.0.x`, tag `v1.0.1-rc10`, and `releases/candidates/MonitorMirror-1.0.1-build-11-rc10-Xcode.zip`. See [`ROADMAP.md`](ROADMAP.md) for the physical H.264 acceptance matrix.
 
@@ -164,6 +164,19 @@ Network.framework uses infrastructure Wi-Fi when available and explicitly opts i
 ### Video becomes delayed
 
 The H.264 transport permits only one active send and keeps at most one pending access unit. It never replaces an encoded delta frame with a newer dependent delta. Under pressure it requests a fresh keyframe and rejects deltas until that independent recovery point can be queued. This bounds application-level backlog without breaking the decoder reference chain. Reduce distance or Wi-Fi congestion if video becomes delayed.
+
+## Stand use
+
+iOS does not let an app disable or remap the side, Action, or Camera Control buttons. An accidental press can leave Monitor Mirror, and leaving suspends the app and ends the nearby connection.
+
+To keep the app in the foreground:
+
+1. Turn on **Settings → Accessibility → Guided Access**, set a passcode, then triple-click the side button while Monitor Mirror is open.
+2. In Session Settings, enable **Side Button**, **Volume Buttons**, and **Motion**, then tap **Start**.
+3. To leave later, triple-click the side button, enter the passcode, and tap **End**.
+4. Optionally turn off **Settings → Accessibility → Camera Control**, and set **Settings → Action Button** to **No Action**.
+
+The iPhone pairing screen shows the reminder before scanning, and the setup screen repeats it; **About → Stand Use** contains the steps in the app. The reminder refreshes when Guided Access changes and whenever the app becomes active, so it disappears after you enable Guided Access in Settings and return. On an MDM-supervised device, an app can request Single App Mode through `UIAccessibility.requestGuidedAccessSession`, but ordinary installations require the user to start Guided Access.
 
 ## Camera setup regressions
 

@@ -3,12 +3,14 @@ import UIKit
 
 struct SenderView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var peer: PeerSession
     @StateObject private var camera = CameraProcessor()
 
     @State private var pairingAccepted = false
     @State private var scanError: String?
     @State private var scannerID = UUID()
+    @State private var isGuidedAccessEnabled = UIAccessibility.isGuidedAccessEnabled
 
     var body: some View {
         Group {
@@ -43,6 +45,15 @@ struct SenderView: View {
         .onChange(of: peer.sessionEndSequence) { _, _ in
             dismiss()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIAccessibility.guidedAccessStatusDidChangeNotification)) { _ in
+            isGuidedAccessEnabled = UIAccessibility.isGuidedAccessEnabled
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Leaving for Settings suspends the app, so the status notification may never arrive.
+            if phase == .active {
+                isGuidedAccessEnabled = UIAccessibility.isGuidedAccessEnabled
+            }
+        }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             camera.setSharing(false)
@@ -67,6 +78,7 @@ struct SenderView: View {
     private var portraitPairingView: some View {
         VStack(spacing: 16) {
             pairingInstructions
+            standUseHint
             pairingScanner
             pairingStatus
         }
@@ -77,12 +89,26 @@ struct SenderView: View {
             pairingScanner
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            VStack(spacing: 12) {
-                pairingInstructions
-                Spacer(minLength: 0)
-                pairingStatus
+            ScrollView {
+                VStack(spacing: 12) {
+                    pairingInstructions
+                    standUseHint
+                    pairingStatus
+                }
+                .frame(maxWidth: .infinity)
             }
             .frame(width: min(360, max(280, size.width * 0.36)))
+        }
+    }
+
+    @ViewBuilder
+    private var standUseHint: some View {
+        if !isGuidedAccessEnabled {
+            Label("For stand use, turn on Guided Access in Settings → Accessibility so accidental hardware-button presses cannot leave the app. See About → Stand Use.", systemImage: "hand.raised")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -282,6 +308,8 @@ struct SenderView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
             }
+
+            standUseHint
 
             if camera.availableLenses.count > 1 {
                 Picker("Camera Lens", selection: Binding(

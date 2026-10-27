@@ -85,7 +85,7 @@ private struct AboutView: View {
     private let websiteURL = URL(string: "https://monitor-mirror.com")!
 
     private var versionText: String {
-        let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.1"
+        let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.2"
         let build = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? ""
         return build.isEmpty ? "Version \(version)" : "Version \(version) (\(build))"
     }
@@ -114,6 +114,7 @@ private struct AboutView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Changelog")
                             .font(.title3.bold())
+                        Text("1.1.2 — Added Guided Access guidance for stand use, with reminders before pairing and during setup, and an About → Stand Use help section.")
                         Text("1.1.1 — Fixed video orientation, paused corner detection after its first candidate, and moved setup controls and guidance away from the monitor preview for easier use in a stand.")
                         Text("1.1.0 — Added low-latency H.264 streaming, sender rotation, adaptive video sizing, larger responsive camera and viewer layouts, and selection among available rear camera lenses.")
                         Text("1.0.1 — Added secure one-scan QR pairing, encrypted nearby transport, perspective correction, and the current app identity.")
@@ -123,6 +124,21 @@ private struct AboutView: View {
                         Text("Libraries")
                             .font(.title3.bold())
                         Text("No third-party libraries or external open-source packages are included. Monitor Mirror is built with Apple system frameworks including SwiftUI, AVFoundation, Vision, Core Image, VideoToolbox, Network.framework, CryptoKit, and Security.")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Stand Use")
+                            .font(.title3.bold())
+                        Text("iOS does not let an app disable or remap the side, Action, or Camera Control buttons. Use Guided Access to keep Monitor Mirror in the foreground so an accidental button press cannot end the session.")
+                            .foregroundStyle(.secondary)
+                        Text("1. Settings → Accessibility → Guided Access, turn it on, and set a passcode.")
+                        Text("2. Open Monitor Mirror on the iPhone and triple-click the side button.")
+                        Text("3. In Session Settings, turn on Side Button, Volume Buttons, and Motion. Tap Start.")
+                        Text("4. To leave later, triple-click the side button, enter the passcode, and tap End.")
+                        Text("You can also turn off Camera Control in Settings → Accessibility → Camera Control, and set Settings → Action Button to No Action.")
+                            .foregroundStyle(.secondary)
+                        Text("Leaving the app suspends it and ends the nearby connection. Create a new pairing code on the iPad to reconnect.")
                             .foregroundStyle(.secondary)
                     }
 

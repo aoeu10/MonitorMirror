@@ -2,14 +2,14 @@
 
 This document tracks work that still requires physical-device validation.
 
-## 1.1.1 camera setup and H.264 transport
+## 1.1.2 camera setup and H.264 transport
 
-**Status:** RC5 H.264 streaming was physically confirmed working. Version 1.1.1 (build 18) fixes orientation and calibration usability; simulator codec regressions and rendered setup layouts pass. Physical-device rotation and nearby-network acceptance remain to be checked on this version.
+**Status:** RC5 H.264 streaming was physically confirmed working. Version 1.1.2 (build 19) fixes orientation and calibration usability; simulator codec regressions and rendered setup layouts pass. Physical-device rotation and nearby-network acceptance remain to be checked on this version.
 **Priority:** High
 
 The H.264 branch replaces independent JPEG images with Apple VideoToolbox while retaining perspective correction, QR pairing, explicit Network.framework peer-to-peer routing, TLS-PSK authentication, bounded backpressure, and graceful **Stop Sharing**.
 
-### Implemented through 1.1.1 (build 18)
+### Implemented through 1.1.2 (build 19)
 
 - `VTCompressionSession` on the iPhone
 - `VTDecompressionSession` on the iPad

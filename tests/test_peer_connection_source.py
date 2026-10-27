@@ -202,6 +202,43 @@ class NetworkPeerConnectionSourceTests(unittest.TestCase):
         self.assertNotIn('systemImage: "iphone.gen3.camera"', CONTENT)
         self.assertIn('systemImage: "iphone"', CONTENT)
 
+    def test_stand_use_guidance_explains_guided_access_without_claiming_app_can_disable_buttons(self):
+        self.assertIn("@State private var isShowingAbout = false", CONTENT)
+        self.assertIn('Label("About", systemImage: "info.circle")', CONTENT)
+        self.assertIn("private struct AboutView: View", CONTENT)
+        self.assertIn('Text("Changelog")', CONTENT)
+        self.assertIn('Text("Libraries")', CONTENT)
+        self.assertIn('URL(string: "https://monitor-mirror.com")!', CONTENT)
+
+        self.assertIn('Text("Stand Use")', CONTENT)
+        self.assertIn("Settings → Accessibility → Guided Access", CONTENT)
+        self.assertIn("triple-click the side button", CONTENT)
+        self.assertIn("Settings → Accessibility → Camera Control", CONTENT)
+        self.assertIn("Settings → Action Button", CONTENT)
+        self.assertIn("Leaving the app suspends it and ends the nearby connection", CONTENT)
+
+        self.assertIn("UIAccessibility.guidedAccessStatusDidChangeNotification", SENDER)
+        self.assertIn("UIAccessibility.isGuidedAccessEnabled", SENDER)
+        self.assertIn("if !isGuidedAccessEnabled", SENDER)
+        self.assertIn("About → Stand Use", SENDER)
+
+        # The reminder must be visible before pairing, and must survive a trip to Settings.
+        self.assertIn("@Environment(\\.scenePhase) private var scenePhase", SENDER)
+        scene_phase = SENDER.split(".onChange(of: scenePhase)", 1)[1].split(".onDisappear", 1)[0]
+        self.assertIn("phase == .active", scene_phase)
+        self.assertIn("isGuidedAccessEnabled = UIAccessibility.isGuidedAccessEnabled", scene_phase)
+
+        self.assertIn("private var standUseHint: some View", SENDER)
+        portrait_pairing = SENDER.split("private var portraitPairingView", 1)[1].split(
+            "private func landscapePairingView", 1
+        )[0]
+        self.assertIn("standUseHint", portrait_pairing)
+        landscape_pairing = SENDER.split("private func landscapePairingView", 1)[1].split(
+            "private var standUseHint", 1
+        )[0]
+        self.assertIn("standUseHint", landscape_pairing)
+        self.assertIn("standUseHint", SENDER.split("private var calibrationDetails", 1)[1])
+
     def test_launch_diagnostics_cover_root_and_first_viewer_path_without_secrets(self):
         for marker in (
             'LaunchDiagnostics.mark("peer.init")',
